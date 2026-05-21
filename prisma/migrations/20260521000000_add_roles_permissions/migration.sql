@@ -1,0 +1,26 @@
+CREATE TABLE IF NOT EXISTS "Role" (
+  "id" SERIAL PRIMARY KEY,
+  "name" TEXT NOT NULL UNIQUE,
+  "level" INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS "Permission" (
+  "id" SERIAL PRIMARY KEY,
+  "name" TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS "UserRole" (
+  "userId" INTEGER NOT NULL,
+  "roleId" INTEGER NOT NULL,
+  PRIMARY KEY ("userId", "roleId"),
+  FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE,
+  FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS "RolePermission" (
+  "roleId" INTEGER NOT NULL,
+  "permissionId" INTEGER NOT NULL,
+  PRIMARY KEY ("roleId", "permissionId"),
+  FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE CASCADE,
+  FOREIGN KEY ("permissionId") REFERENCES "Permission"("id") ON DELETE CASCADE
+);

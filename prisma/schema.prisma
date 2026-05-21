@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+model User {
+  id                Int        @id @default(autoincrement())
+  email             String     @unique
+  password          String
+  firstName         String
+  lastName          String
+  middleName        String?
+  phoneNumber       String?
+  isOneTimePassword Boolean    @default(true)
+  isAdmin           Boolean    @default(false)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  roles             UserRole[]
+
+  @@index([email])
+}
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  level       Int              @default(1)
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id    Int              @id @default(autoincrement())
+  name  String           @unique
+  roles RolePermission[]
+}
+
+model UserRole {
+  userId Int
+  roleId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
