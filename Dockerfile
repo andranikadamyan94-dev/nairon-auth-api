@@ -2,10 +2,9 @@ FROM node:20-alpine
 WORKDIR /app
 
 RUN apk add --no-cache openssl python3 make g++
-RUN npm install -g pnpm
 
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --ignore-scripts
+COPY package.json ./
+RUN npm install
 
 COPY . .
 RUN ./node_modules/.bin/prisma generate
