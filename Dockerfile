@@ -11,4 +11,4 @@ RUN ./node_modules/.bin/prisma generate
 RUN ./node_modules/.bin/nest build
 
 EXPOSE 3002
-CMD ./node_modules/.bin/prisma migrate deploy && node dist/src/main.js
+CMD ./node_modules/.bin/prisma migrate deploy && node dist/main.js
