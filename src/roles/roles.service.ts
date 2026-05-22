@@ -5,12 +5,13 @@ import { AuthPrismaService } from '../prisma.service';
 export class RolesService {
   constructor(private prisma: AuthPrismaService) {}
 
-  async createRole(name: string, level: number) {
-    return this.prisma.role.create({ data: { name, level } });
+  async createRole(name: string, level: number, departmentId?: number) {
+    return this.prisma.role.create({ data: { name, level, departmentId } });
   }
 
-  async getAllRoles() {
+  async getAllRoles(departmentId?: number) {
     return this.prisma.role.findMany({
+      where: departmentId ? { departmentId } : undefined,
       include: { permissions: { include: { permission: true } } },
       orderBy: { level: 'asc' },
     });
@@ -25,8 +26,8 @@ export class RolesService {
     return role;
   }
 
-  async updateRole(id: number, name: string, level: number) {
-    return this.prisma.role.update({ where: { id }, data: { name, level } });
+  async updateRole(id: number, data: { name?: string; level?: number; departmentId?: number | null }) {
+    return this.prisma.role.update({ where: { id }, data });
   }
 
   async deleteRole(id: number) {

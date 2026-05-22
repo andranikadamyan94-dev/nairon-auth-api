@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { RolesService } from './roles.service';
@@ -13,13 +13,13 @@ export class RolesController {
   @Post()
   @ApiOperation({ summary: 'Create role' })
   create(@Body() dto: CreateRoleDto) {
-    return this.rolesService.createRole(dto.name, dto.level);
+    return this.rolesService.createRole(dto.name, dto.level, dto.departmentId);
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all roles' })
-  findAll() {
-    return this.rolesService.getAllRoles();
+  findAll(@Query('departmentId') departmentId?: string) {
+    return this.rolesService.getAllRoles(departmentId ? Number(departmentId) : undefined);
   }
 
   @Get(':id')
@@ -31,7 +31,7 @@ export class RolesController {
   @Put(':id')
   @ApiOperation({ summary: 'Update role' })
   update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateRoleDto) {
-    return this.rolesService.updateRole(id, dto.name!, dto.level!);
+    return this.rolesService.updateRole(id, dto);
   }
 
   @Delete(':id')
