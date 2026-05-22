@@ -35,6 +35,13 @@ export class RolesService {
   }
 
   async assignPermissionsToRole(roleId: number, permissionNames: string[]) {
+    for (const name of permissionNames) {
+      await this.prisma.permission.upsert({
+        where: { name },
+        create: { name },
+        update: {},
+      });
+    }
     const permissions = await this.prisma.permission.findMany({
       where: { name: { in: permissionNames } },
     });
