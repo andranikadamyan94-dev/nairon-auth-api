@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { M } from '../constants/messages';
 import { JwtService } from '@nestjs/jwt';
 import { AuthPrismaService } from '../prisma.service';
 import * as bcrypt from 'bcryptjs';
@@ -26,7 +27,7 @@ export class AuthService {
       },
     });
     if (!user || !bcrypt.compareSync(pass, user.password)) {
-      throw new BadRequestException('invalid credentials');
+      throw new BadRequestException(M.auth.invalidCredentials);
     }
     const { password, ...payload } = user;
     return {

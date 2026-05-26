@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AuthPrismaService } from '../prisma.service';
+import { M } from '../constants/messages';
 
 @Injectable()
 export class RolesService {
@@ -22,7 +23,7 @@ export class RolesService {
       where: { id },
       include: { permissions: { include: { permission: true } } },
     });
-    if (!role) throw new NotFoundException('Role not found');
+    if (!role) throw new NotFoundException(M.role.notFound);
     return role;
   }
 

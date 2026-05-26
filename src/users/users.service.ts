@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { AuthPrismaService } from '../prisma.service';
+import { M } from '../constants/messages';
 import * as bcrypt from 'bcryptjs';
 import { CreateUserDto, UpdateUserDto } from './dtos/user.dto';
 
@@ -9,7 +10,7 @@ export class UsersService {
 
   async createUser(dto: CreateUserDto) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase().trim() } });
-    if (existing) throw new ConflictException('Email already exists');
+    if (existing) throw new ConflictException(M.user.emailAlreadyExists);
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
@@ -28,7 +29,7 @@ export class UsersService {
         },
       },
     });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException(M.user.notFound);
     const { password, ...result } = user;
     return result;
   }
@@ -63,7 +64,7 @@ export class UsersService {
 
   async deleteUser(id: number) {
     const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException(M.user.notFound);
     await this.prisma.user.delete({ where: { id } });
   }
 }
