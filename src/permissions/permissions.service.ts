@@ -29,6 +29,7 @@ export const ALL_PERMISSIONS = [
   'create_sprint', 'update_sprint', 'delete_sprint', 'manage_sprint_status',
   'create_project_status', 'update_project_status', 'delete_project_status',
   'manage_backlogs',
+  'view_warehouse',
 ];
 
 @Injectable()
@@ -37,16 +38,17 @@ export class PermissionsService implements OnModuleInit {
 
   async onModuleInit() {
     await this.seedPermissions();
+    setInterval(() => {
+      this.prisma.$queryRaw`SELECT 1`.catch(() => {});
+    }, 4 * 60 * 1000);
   }
 
   async seedPermissions() {
-    for (const name of ALL_PERMISSIONS) {
-      await this.prisma.permission.upsert({
-        where: { name },
-        create: { name },
-        update: {},
-      });
-    }
+    await Promise.all(
+      ALL_PERMISSIONS.map((name) =>
+        this.prisma.permission.upsert({ where: { name }, create: { name }, update: {} }),
+      ),
+    );
   }
 
   async getAllPermissions() {
