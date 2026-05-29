@@ -21,7 +21,7 @@ export const ALL_PERMISSIONS = [
   'create_transfer_department', 'update_transfer_department', 'delete_transfer_department',
   'view_transfer_department', 'view_all_transfer_departments',
   'page_financial', 'page_policies', 'page_members', 'page_tasks', 'page_applications',
-  'page_assignments',
+  'page_assignments', 'page_warehouse',
   'create_project', 'update_project', 'delete_project', 'manage_project_members',
   'create_project_task', 'update_project_task', 'delete_project_task', 'assign_project_task',
   'comment_project_task', 'manage_project_attachments', 'manage_project_subtasks',
