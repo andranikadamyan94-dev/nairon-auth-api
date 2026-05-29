@@ -11,4 +11,6 @@ export class CreateUserDto {
   @ApiPropertyOptional() @IsOptional() @IsBoolean() isAdmin?: boolean;
 }
 
-export class UpdateUserDto extends PartialType(CreateUserDto) {}
+export class UpdateUserDto extends PartialType(CreateUserDto) {
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isOneTimePassword?: boolean;
+}
