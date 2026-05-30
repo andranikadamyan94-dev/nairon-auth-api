@@ -41,19 +41,21 @@ model Permission {
 }
 
 model UserRole {
-  userId Int
-  roleId Int
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role   Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  userId   Int
+  roleId   Int
+  entityId Int  @default(0)
+  user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
-  @@id([userId, roleId])
+  @@id([userId, roleId, entityId])
 }
 
 model RolePermission {
   roleId       Int
   permissionId Int
+  entityId     Int        @default(0)
   role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-  @@id([roleId, permissionId])
+  @@id([roleId, permissionId, entityId])
 }

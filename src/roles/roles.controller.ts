@@ -24,8 +24,8 @@ export class RolesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get role by id' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.rolesService.getRoleById(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @Query('entityId') entityId?: string) {
+    return this.rolesService.getRoleById(id, entityId !== undefined ? Number(entityId) : undefined);
   }
 
   @Put(':id')
@@ -43,12 +43,12 @@ export class RolesController {
   @Post(':id/assign-permissions')
   @ApiOperation({ summary: 'Assign permissions to role' })
   assignPermissions(@Param('id', ParseIntPipe) id: number, @Body() dto: AssignPermissionsToRoleDto) {
-    return this.rolesService.assignPermissionsToRole(id, dto.permissionNames);
+    return this.rolesService.assignPermissionsToRole(id, dto.permissionNames, dto.entityId ?? 0);
   }
 
   @Post('assign-to-user/:userId')
   @ApiOperation({ summary: 'Assign roles to user' })
   assignToUser(@Param('userId', ParseIntPipe) userId: number, @Body() dto: AssignRolesToUserDto) {
-    return this.rolesService.assignRolesToUser(userId, dto.roleIds);
+    return this.rolesService.assignRolesToUser(userId, dto.roleIds, dto.entityId ?? 0);
   }
 }

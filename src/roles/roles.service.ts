@@ -18,10 +18,15 @@ export class RolesService {
     });
   }
 
-  async getRoleById(id: number) {
+  async getRoleById(id: number, entityId?: number) {
     const role = await this.prisma.role.findUnique({
       where: { id },
-      include: { permissions: { include: { permission: true } } },
+      include: {
+        permissions: {
+          where: entityId !== undefined ? { entityId } : undefined,
+          include: { permission: true },
+        },
+      },
     });
     if (!role) throw new NotFoundException(M.role.notFound);
     return role;
@@ -35,8 +40,12 @@ export class RolesService {
     return this.prisma.role.delete({ where: { id } });
   }
 
-  async assignPermissionsToRole(roleId: number, permissionNames: string[]) {
-    for (const name of permissionNames) {
+  async assignPermissionsToRole(roleId: number, permissionNames: string[], entityId = 0) {
+    const allNames = entityId > 0
+      ? [...new Set([...permissionNames, '_entity_configured_'])]
+      : permissionNames;
+
+    for (const name of allNames) {
       await this.prisma.permission.upsert({
         where: { name },
         create: { name },
@@ -44,22 +53,22 @@ export class RolesService {
       });
     }
     const permissions = await this.prisma.permission.findMany({
-      where: { name: { in: permissionNames } },
+      where: { name: { in: allNames } },
     });
-    await this.prisma.rolePermission.deleteMany({ where: { roleId } });
+    await this.prisma.rolePermission.deleteMany({ where: { roleId, entityId } });
     if (permissions.length > 0) {
       await this.prisma.rolePermission.createMany({
-        data: permissions.map((p) => ({ roleId, permissionId: p.id })),
+        data: permissions.map((p) => ({ roleId, permissionId: p.id, entityId })),
       });
     }
     return { success: true };
   }
 
-  async assignRolesToUser(userId: number, roleIds: number[]) {
-    await this.prisma.userRole.deleteMany({ where: { userId } });
+  async assignRolesToUser(userId: number, roleIds: number[], entityId = 0) {
+    await this.prisma.userRole.deleteMany({ where: { userId, entityId } });
     if (roleIds.length > 0) {
       await this.prisma.userRole.createMany({
-        data: roleIds.map((roleId) => ({ userId, roleId })),
+        data: roleIds.map((roleId) => ({ userId, roleId, entityId })),
       });
     }
     return { success: true };

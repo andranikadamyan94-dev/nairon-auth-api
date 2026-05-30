@@ -15,8 +15,10 @@ export class UpdateRoleDto {
 
 export class AssignPermissionsToRoleDto {
   @ApiProperty({ type: [String] }) @IsArray() @IsString({ each: true }) permissionNames: string[];
+  @ApiPropertyOptional() @IsOptional() @IsInt() entityId?: number;
 }
 
 export class AssignRolesToUserDto {
   @ApiProperty({ type: [Number] }) @IsArray() @IsInt({ each: true }) roleIds: number[];
+  @ApiPropertyOptional() @IsOptional() @IsInt() entityId?: number;
 }
