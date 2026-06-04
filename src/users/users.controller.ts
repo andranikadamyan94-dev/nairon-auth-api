@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Request } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto } from './dtos/user.dto';
@@ -19,8 +19,8 @@ export class UsersController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'Get all users' })
-  findAll() {
-    return this.usersService.getAllUsers();
+  findAll(@Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.usersService.getAllUsers(page ? +page : 1, limit ? +limit : 100);
   }
 
   @Public()

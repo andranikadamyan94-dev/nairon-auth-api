@@ -34,7 +34,7 @@ export class UsersService {
     return result;
   }
 
-  async getAllUsers() {
+  async getAllUsers(page = 1, limit = 100) {
     const users = await this.prisma.user.findMany({
       orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
       include: {
@@ -42,6 +42,8 @@ export class UsersService {
           include: { role: { include: { permissions: { include: { permission: true } } } } },
         },
       },
+      skip: (page - 1) * limit,
+      take: limit,
     });
     return users.map(({ password, ...u }) => u);
   }
