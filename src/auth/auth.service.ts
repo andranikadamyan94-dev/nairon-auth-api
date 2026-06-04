@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { M } from '../constants/messages';
 import { JwtService } from '@nestjs/jwt';
 import { AuthPrismaService } from '../prisma.service';
@@ -34,5 +34,30 @@ export class AuthService {
       access_token: await this.jwtService.signAsync({ id: payload.id, email: payload.email, isAdmin: payload.isAdmin, roles: payload.roles }),
       user: payload,
     };
+  }
+
+  async getMe(token: string) {
+    try {
+      const decoded = await this.jwtService.verifyAsync(token);
+      const user = await this.prisma.user.findUnique({
+        where: { id: decoded.id },
+        include: {
+          roles: {
+            include: {
+              role: {
+                include: {
+                  permissions: { include: { permission: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+      if (!user) throw new UnauthorizedException();
+      const { password, ...payload } = user;
+      return { access_token: token, user: payload };
+    } catch {
+      throw new UnauthorizedException();
+    }
   }
 }
