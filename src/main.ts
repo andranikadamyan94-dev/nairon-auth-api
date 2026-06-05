@@ -11,6 +11,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:3000',
+      'http://localhost:3004',
       'http://localhost:4001',
       'http://localhost:4002',
       'http://localhost:4003',
@@ -21,9 +22,9 @@ async function bootstrap() {
       'https://crm.nairon.am',
       process.env.FRONTEND_URL,
     ].filter(Boolean),
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
   });
 
   app.setGlobalPrefix('api');

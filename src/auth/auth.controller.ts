@@ -9,7 +9,7 @@ const COOKIE_NAME = 'nairon_session';
 const COOKIE_OPTS = {
   httpOnly: true,
   sameSite: 'lax' as const,
-  maxAge: 60 * 60 * 1000, // 1 hour
+  maxAge: 60 * 60 * 1000,
   path: '/',
 };
 
@@ -38,7 +38,6 @@ export class AuthController {
     const token = req.cookies?.[COOKIE_NAME];
     if (!token) throw new UnauthorizedException();
     const result = await this.authService.getMe(token);
-    // Refresh cookie TTL
     res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
     return result;
   }
