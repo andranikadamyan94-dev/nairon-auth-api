@@ -20,7 +20,7 @@ async function bootstrap() {
       'https://nairon.am',
       'https://www.nairon.am',
       'https://crm.nairon.am',
-      process.env.FRONTEND_URL,
+      ...(process.env.FRONTEND_URL?.split(',').map((u) => u.trim()).filter(Boolean) ?? []),
     ].filter(Boolean),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
