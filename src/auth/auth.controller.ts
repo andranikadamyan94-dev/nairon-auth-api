@@ -32,8 +32,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
-  @Post("login")
-  @Post("signin")
+  @Post(["login", "signin"])
   @ApiOperation({ summary: "Login" })
   async signIn(
     @Body() dto: LoginDto,
