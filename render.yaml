@@ -1,6 +1,7 @@
 services:
   - type: web
     name: nairon-auth-api
+    branch: develop
     runtime: docker
     dockerfilePath: ./Dockerfile
     envVars:
