@@ -30,16 +30,8 @@ export class AuthService {
       throw new BadRequestException(M.auth.invalidCredentials);
     }
     const { password, ...payload } = user;
-    const compactRoles = payload.roles.map((r: any) => ({
-      role: {
-        level: r.role.level,
-        permissions: r.role.permissions.map((p: any) => ({
-          permission: { name: p.permission?.name },
-        })),
-      },
-    }));
     return {
-      access_token: await this.jwtService.signAsync({ id: payload.id, email: payload.email, isAdmin: payload.isAdmin, roles: compactRoles }),
+      access_token: await this.jwtService.signAsync({ id: payload.id, email: payload.email, isAdmin: payload.isAdmin }),
       user: payload,
     };
   }
