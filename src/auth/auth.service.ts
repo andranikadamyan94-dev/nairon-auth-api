@@ -30,8 +30,9 @@ export class AuthService {
       throw new BadRequestException(M.auth.invalidCredentials);
     }
     const { password, ...payload } = user;
+    const isSuperAdmin = payload.roles?.some((r: any) => r.role?.level === 0) ?? false;
     return {
-      access_token: await this.jwtService.signAsync({ id: payload.id, email: payload.email, isAdmin: payload.isAdmin }),
+      access_token: await this.jwtService.signAsync({ id: payload.id, email: payload.email, isAdmin: payload.isAdmin || isSuperAdmin }),
       user: payload,
     };
   }
