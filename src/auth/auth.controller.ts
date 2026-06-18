@@ -20,8 +20,9 @@ const COOKIE_NAME = "nairon_session";
 const COOKIE_OPTS = {
   httpOnly: true,
   sameSite: "strict" as const,
-  maxAge: 60 * 60 * 1000, // 1 hour
+  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (matches JWT TTL)
   path: "/",
+  secure: process.env.NODE_ENV === 'production',
 };
 
 @ApiTags("auth")
