@@ -33,9 +33,9 @@ export class AuthService {
     const compactRoles = payload.roles.map((r: any) => ({
       role: {
         level: r.role.level,
-        permissions: Array.from(
-          new Map(r.role.permissions.map((p: any) => [p.permissionId ?? p.permission?.id, p])).values()
-        ),
+        permissions: r.role.permissions.map((p: any) => ({
+          permission: { name: p.permission?.name },
+        })),
       },
     }));
     return {
