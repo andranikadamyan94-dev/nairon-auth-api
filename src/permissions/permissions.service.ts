@@ -30,6 +30,8 @@ export const ALL_PERMISSIONS = [
   'create_project_status', 'update_project_status', 'delete_project_status',
   'manage_backlogs',
   'view_warehouse',
+  'finance_approval', 'director_approval',
+  'view_system_users',
 ];
 
 @Injectable()
