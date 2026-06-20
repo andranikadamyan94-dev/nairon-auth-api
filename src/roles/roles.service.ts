@@ -23,7 +23,7 @@ export class RolesService {
       where: { id },
       include: {
         permissions: {
-          where: entityId !== undefined ? { entityId } : undefined,
+          where: entityId !== undefined ? { entityId: { in: [0, entityId] } } : undefined,
           include: { permission: true },
         },
       },
