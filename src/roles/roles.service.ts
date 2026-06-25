@@ -19,14 +19,19 @@ export class RolesService {
   }
 
   async getRoleById(id: number, entityId?: number) {
+    let permissionsWhere: any = undefined;
+    if (entityId !== undefined && entityId > 0) {
+      const entityConfigured = await this.prisma.rolePermission.findFirst({
+        where: { roleId: id, entityId, permission: { name: '_entity_configured_' } },
+        include: { permission: true },
+      });
+      permissionsWhere = entityConfigured ? { entityId } : { entityId: 0 };
+    } else if (entityId === 0) {
+      permissionsWhere = { entityId: 0 };
+    }
     const role = await this.prisma.role.findUnique({
       where: { id },
-      include: {
-        permissions: {
-          where: entityId !== undefined ? { entityId: { in: [0, entityId] } } : undefined,
-          include: { permission: true },
-        },
-      },
+      include: { permissions: { where: permissionsWhere, include: { permission: true } } },
     });
     if (!role) throw new NotFoundException(M.role.notFound);
     return role;
