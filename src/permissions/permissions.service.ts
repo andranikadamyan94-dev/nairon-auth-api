@@ -44,6 +44,8 @@ export const ALL_PERMISSIONS = [
   'manage_resource_returns',
   'finance_approval', 'director_approval',
   'view_system_users',
+  'excuse_sprint_task',
+  'manage_performance',
 ];
 
 @Injectable()
