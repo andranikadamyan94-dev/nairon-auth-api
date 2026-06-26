@@ -46,6 +46,10 @@ export const ALL_PERMISSIONS = [
   'view_system_users',
   'excuse_sprint_task',
   'manage_performance',
+  'send_notification',
+  'manage_application_types',
+  'submit_application',
+  'view_all_applications',
 ];
 
 @Injectable()
