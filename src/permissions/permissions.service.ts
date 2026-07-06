@@ -50,6 +50,8 @@ export const ALL_PERMISSIONS = [
   'manage_application_types',
   'submit_application',
   'view_all_applications',
+  'approve_applications',
+  'add_assign_acceptor',
 ];
 
 @Injectable()
