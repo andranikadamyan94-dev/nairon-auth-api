@@ -24,7 +24,7 @@ export const ALL_PERMISSIONS = [
   'manage_attendance', 'view_all_attendance',
   'manage_leave_requests', 'review_leave_requests',
   'manage_work_schedule',
-  'page_financial', 'page_policies', 'page_members', 'page_tasks', 'page_applications',
+  'page_finance', 'page_financial', 'page_policies', 'page_members', 'page_tasks', 'page_applications',
   'page_assignments', 'page_warehouse',
   'create_project', 'update_project', 'delete_project', 'manage_project_members',
   'create_project_task', 'update_project_task', 'delete_project_task', 'assign_project_task',
@@ -42,8 +42,16 @@ export const ALL_PERMISSIONS = [
   'manage_procurement', 'approve_procurement',
   'view_reservations', 'manage_reservations',
   'manage_resource_returns',
-  'finance_approval', 'director_approval',
+  'finance_approval', 'director_approval', 'manage_recurring_transfers',
   'view_system_users',
+  'excuse_sprint_task',
+  'manage_performance',
+  'send_notification',
+  'manage_application_types',
+  'submit_application',
+  'view_all_applications',
+  'approve_applications',
+  'add_assign_acceptor',
 ];
 
 @Injectable()
