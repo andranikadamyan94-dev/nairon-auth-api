@@ -57,6 +57,7 @@ export const ALL_PERMISSIONS = [
   'view_all_applications',
   'approve_applications',
   'add_assign_acceptor',
+  'manage_department_requests',
 ];
 
 @Injectable()
