@@ -24,6 +24,8 @@ async function bootstrap() {
       'https://warehouse.nairon.am',
       'https://staging.nairon.am',
       'https://staging-crm.nairon.am',
+      'https://staging-finance.nairon.am',
+      'https://staging-warehouse.nairon.am',
       ...(process.env.FRONTEND_URL?.split(',').map((u) => u.trim()).filter(Boolean) ?? []),
     ].filter(Boolean),
     credentials: true,
