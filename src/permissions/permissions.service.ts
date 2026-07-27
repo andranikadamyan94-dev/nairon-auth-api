@@ -34,6 +34,7 @@ export const ALL_PERMISSIONS = [
   'create_sprint', 'update_sprint', 'delete_sprint', 'manage_sprint_status',
   'create_project_status', 'update_project_status', 'delete_project_status',
   'manage_backlogs',
+  'invite_calendar_departments', 'view_team_calendar',
   'view_warehouse',
   'manage_warehouse',
   'manage_items', 'manage_categories',
