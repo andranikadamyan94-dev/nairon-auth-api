@@ -52,6 +52,7 @@ export const ALL_PERMISSIONS = [
   'excuse_sprint_task',
   'manage_performance',
   'view_all_performance',
+  'view_performance_trends',
   'send_notification',
   'manage_application_types',
   'submit_application',
