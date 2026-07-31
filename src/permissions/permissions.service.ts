@@ -63,7 +63,7 @@ export const ALL_PERMISSIONS = [
   'manage_department_requests',
   'create_department_demand',
   // Learning platform
-  'view_learning', 'author_courses', 'assign_courses', 'manage_learning',
+  'view_learning', 'author_courses', 'assign_courses', 'manage_learning', 'view_team_learning',
   // Peer feedback
   'give_feedback', 'moderate_feedback', 'view_team_feedback', 'manage_feedback_forms',
 ];
