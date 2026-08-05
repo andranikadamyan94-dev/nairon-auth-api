@@ -28,11 +28,17 @@ model User {
 
 model Role {
   id           Int              @id @default(autoincrement())
-  name         String           @unique
+  name         String
   level        Int              @default(1)
   departmentId Int?
   users        UserRole[]
   permissions  RolePermission[]
+
+  // Scoped to the department: the same role name is expected to exist in
+  // several departments (one "Manager" per department), which a global unique
+  // on name made impossible — the UI offers a multi-department create and all
+  // but the first silently failed.
+  @@unique([name, departmentId])
 }
 
 model Permission {

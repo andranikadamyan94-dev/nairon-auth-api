@@ -10,7 +10,15 @@ export class UsersService {
 
   async createUser(dto: CreateUserDto) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase().trim() } });
-    if (existing) throw new ConflictException(M.user.emailAlreadyExists);
+    // Same body shape as the PrismaExceptionFilter's P2002 response, so a form
+    // can show this under the email input rather than as a bare toast.
+    if (existing) {
+      throw new ConflictException({
+        statusCode: 409,
+        message: M.user.emailAlreadyExists,
+        fields: ['email'],
+      });
+    }
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
