@@ -15,6 +15,7 @@ export const ALL_PERMISSIONS = [
   'view_transfers_chart', 'create_transfer', 'update_transfer', 'delete_transfer',
   'view_transfer', 'view_all_transfers',
   'create_payroll_run', 'view_all_payroll_runs',
+  'create_advance', 'update_advance', 'delete_advance', 'view_advance', 'view_all_advances',
   'create_transfer_nature', 'update_transfer_nature', 'delete_transfer_nature',
   'view_transfer_nature', 'view_all_transfer_natures',
   'create_transfer_category', 'update_transfer_category', 'delete_transfer_category',

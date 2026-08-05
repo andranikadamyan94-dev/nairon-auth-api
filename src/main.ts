@@ -4,6 +4,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as cookieParser from 'cookie-parser';
 import { PrismaExceptionFilter } from './shared/filters/prisma-exception.filter';
+import { armenianValidationPipe } from './shared/validation-messages';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -36,14 +37,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
+  app.useGlobalPipes(armenianValidationPipe({ transformOptions: { enableImplicitConversion: true } }));
 
   // Without this a broken unique constraint (e.g. a duplicate user email)
   // escapes as a bare 500 with no body, leaving the UI nothing to show.
