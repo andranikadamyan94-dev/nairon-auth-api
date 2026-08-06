@@ -19,11 +19,18 @@ model User {
   isOneTimePassword Boolean    @default(true)
   isAdmin           Boolean    @default(false)
   avatarUrl         String?
+  /// Set when someone leaves. The account is kept so that attendance, payroll,
+  /// task history and everything else that references this id stays readable —
+  /// deleting the row orphaned all of it across four databases with no FKs to
+  /// catch it. A deactivated user cannot log in, is rejected by every guard,
+  /// and is absent from every list; only historical records still name them.
+  deactivatedAt     DateTime?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   roles             UserRole[]
 
   @@index([email])
+  @@index([deactivatedAt])
 }
 
 model Role {
