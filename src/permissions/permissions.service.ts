@@ -33,6 +33,9 @@ export const ALL_PERMISSIONS = [
   'comment_project_task', 'manage_project_attachments', 'manage_project_subtasks',
   'manage_project_labels', 'manage_project_tags',
   'move_task_between_projects',
+  // See other people's private tasks (creators and assignees always see
+  // their own). Super-admins and isAdmin bypass without the grant.
+  'view_private_tasks',
   'create_sprint', 'update_sprint', 'delete_sprint', 'manage_sprint_status',
   'create_project_status', 'update_project_status', 'delete_project_status',
   'manage_backlogs',
