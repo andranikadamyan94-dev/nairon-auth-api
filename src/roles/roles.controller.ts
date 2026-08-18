@@ -4,7 +4,7 @@ import { InternalGuard } from '../auth/guards/internal.guard';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { RolesService } from './roles.service';
-import { AssignPermissionsToRoleDto, AssignRolesToUserDto, CreateRoleDto, UpdateRoleDto } from './dtos/role.dto';
+import { AssignPermissionsToRoleDto, AssignRolesToUserDto, AssignRoleMapDto, CreateRoleDto, UpdateRoleDto } from './dtos/role.dto';
 
 /**
  * Service-to-service only, like the users routes — see UsersController for why
@@ -58,5 +58,11 @@ export class RolesController {
   @ApiOperation({ summary: 'Assign roles to user' })
   assignToUser(@Param('userId', ParseIntPipe) userId: number, @Body() dto: AssignRolesToUserDto) {
     return this.rolesService.assignRolesToUser(userId, dto.roleIds, dto.entityId ?? 0);
+  }
+
+  @Post('assign-map/:userId')
+  @ApiOperation({ summary: 'Replace the user’s complete per-entity role map' })
+  assignMap(@Param('userId', ParseIntPipe) userId: number, @Body() dto: AssignRoleMapDto) {
+    return this.rolesService.assignRoleMapToUser(userId, dto.assignments ?? []);
   }
 }

@@ -75,4 +75,31 @@ export class RolesService {
     }
     return { success: true };
   }
+
+  /**
+   * Replace the user's COMPLETE role map in one shot: the payload states every
+   * assignment the user should have, per entity (entityId 0 = every entity),
+   * and anything not in it is removed. This is what the member form saves —
+   * the per-entity variant of assignRolesToUser, which only replaces one
+   * entity's set at a time.
+   */
+  async assignRoleMapToUser(
+    userId: number,
+    assignments: { entityId?: number; roleIds: number[] }[],
+  ) {
+    const rows = assignments.flatMap((a) =>
+      [...new Set(a.roleIds ?? [])].map((roleId) => ({
+        userId,
+        roleId,
+        entityId: a.entityId ?? 0,
+      })),
+    );
+    await this.prisma.$transaction([
+      this.prisma.userRole.deleteMany({ where: { userId } }),
+      ...(rows.length
+        ? [this.prisma.userRole.createMany({ data: rows, skipDuplicates: true })]
+        : []),
+    ]);
+    return { success: true };
+  }
 }
