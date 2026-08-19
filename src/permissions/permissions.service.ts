@@ -23,9 +23,9 @@ export const ALL_PERMISSIONS = [
   'create_transfer_department', 'update_transfer_department', 'delete_transfer_department',
   'view_transfer_department', 'view_all_transfer_departments',
   'create_entity', 'view_entity', 'update_entity', 'delete_entity',
-  'manage_attendance', 'view_all_attendance',
-  'manage_leave_requests', 'review_leave_requests',
-  'manage_work_schedule',
+   
+   
+  
   'page_finance',  'page_policies', 'page_members',  'page_applications',
   'page_assignments', 'page_warehouse',
   'create_project', 'update_project', 'delete_project', 'manage_project_members',
