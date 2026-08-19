@@ -2,20 +2,20 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { AuthPrismaService } from '../prisma.service';
 
 export const ALL_PERMISSIONS = [
-  'create_task', 'update_task', 'delete_task', 'assign_task_to_user', 'assign_task_to_role',
-  'complete_task', 'comment_task', 'view_task', 'track_performance', 'view_all_tasks',
+      
+      
   'create_department', 'update_department', 'delete_department', 'view_department',
   'view_all_departments', 'assign_department_to_user', 'remove_user_from_department',
   'create_role', 'update_role', 'delete_role', 'view_role', 'view_department_roles', 'view_all_roles',
-  'assign_permissions', 'view_permissions', 'view_all_permissions',
-  'create_user', 'update_user', 'password_request', 'password_change', 'delete_user',
+  'assign_permissions',  'view_all_permissions',
+  'create_user', 'update_user', 'password_request',  'delete_user',
   'view_user', 'view_user_permissions', 'assign_roles', 'view_all_users', 'set_otp', 'view_bonus_reports',
   'log_policy', 'update_policy_log', 'delete_policy_log', 'view_policy_log', 'view_all_policy_logs',
   'create_policy', 'update_policy', 'delete_policy', 'view_policy', 'view_all_policies',
   'view_transfers_chart', 'create_transfer', 'update_transfer', 'delete_transfer',
   'view_transfer', 'view_all_transfers',
   'create_payroll_run', 'view_all_payroll_runs',
-  'create_advance', 'update_advance', 'delete_advance', 'view_advance', 'view_all_advances',
+  'create_advance', 'update_advance',  'view_advance', 'view_all_advances',
   'create_transfer_nature', 'update_transfer_nature', 'delete_transfer_nature',
   'view_transfer_nature', 'view_all_transfer_natures',
   'create_transfer_category', 'update_transfer_category', 'delete_transfer_category',
@@ -26,7 +26,7 @@ export const ALL_PERMISSIONS = [
   'manage_attendance', 'view_all_attendance',
   'manage_leave_requests', 'review_leave_requests',
   'manage_work_schedule',
-  'page_finance', 'page_financial', 'page_policies', 'page_members', 'page_tasks', 'page_applications',
+  'page_finance',  'page_policies', 'page_members',  'page_applications',
   'page_assignments', 'page_warehouse',
   'create_project', 'update_project', 'delete_project', 'manage_project_members',
   'create_project_task', 'update_project_task', 'delete_project_task', 'assign_project_task',
@@ -57,7 +57,7 @@ export const ALL_PERMISSIONS = [
   'receive_stock_alerts', 'receive_procurement_alerts', 'receive_reservation_alerts',
   'view_responsibilities', 'manage_responsibilities',
   'finance_approval', 'director_approval', 'manage_recurring_transfers',
-  'view_system_users',
+  
   'excuse_sprint_task',
   'manage_performance',
   'view_all_performance',
