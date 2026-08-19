@@ -15,6 +15,7 @@ export const ALL_PERMISSIONS = [
   'view_transfers_chart', 'create_transfer', 'update_transfer', 'delete_transfer',
   'view_transfer', 'view_all_transfers',
   'create_payroll_run', 'view_all_payroll_runs',
+  'create_advance', 'update_advance', 'delete_advance', 'view_advance', 'view_all_advances',
   'create_transfer_nature', 'update_transfer_nature', 'delete_transfer_nature',
   'view_transfer_nature', 'view_all_transfer_natures',
   'create_transfer_category', 'update_transfer_category', 'delete_transfer_category',
@@ -32,6 +33,9 @@ export const ALL_PERMISSIONS = [
   'comment_project_task', 'manage_project_attachments', 'manage_project_subtasks',
   'manage_project_labels', 'manage_project_tags',
   'move_task_between_projects',
+  // See other people's private tasks (creators and assignees always see
+  // their own). Super-admins and isAdmin bypass without the grant.
+  'view_private_tasks',
   'create_sprint', 'update_sprint', 'delete_sprint', 'manage_sprint_status',
   'create_project_status', 'update_project_status', 'delete_project_status',
   'manage_backlogs',
@@ -47,11 +51,17 @@ export const ALL_PERMISSIONS = [
   'view_resources', 'view_assets', 'view_maintenance',
   'view_partners', 'manage_partners',
   'view_procurement', 'view_resource_returns',
+  // Warehouse notification audiences. manage_warehouse holders receive all
+  // warehouse alerts regardless; these opt in people who don't manage the
+  // warehouse but need to know.
+  'receive_stock_alerts', 'receive_procurement_alerts', 'receive_reservation_alerts',
   'view_responsibilities', 'manage_responsibilities',
   'finance_approval', 'director_approval', 'manage_recurring_transfers',
   'view_system_users',
   'excuse_sprint_task',
   'manage_performance',
+  'view_all_performance',
+  'view_performance_trends',
   'send_notification',
   'manage_application_types',
   'submit_application',
@@ -59,6 +69,11 @@ export const ALL_PERMISSIONS = [
   'approve_applications',
   'add_assign_acceptor',
   'manage_department_requests',
+  'create_department_demand',
+  // Learning platform
+  'view_learning', 'author_courses', 'assign_courses', 'manage_learning', 'view_team_learning',
+  // Peer feedback
+  'give_feedback', 'moderate_feedback', 'view_team_feedback', 'manage_feedback_forms',
 ];
 
 @Injectable()

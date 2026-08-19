@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsString, Min, MinLength, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateRoleDto {
   @ApiProperty() @IsString() @MinLength(1) name: string;
@@ -21,4 +22,16 @@ export class AssignPermissionsToRoleDto {
 export class AssignRolesToUserDto {
   @ApiProperty({ type: [Number] }) @IsArray() @IsInt({ each: true }) roleIds: number[];
   @ApiPropertyOptional() @IsOptional() @IsInt() entityId?: number;
+}
+export class RoleMapEntryDto {
+  @ApiPropertyOptional() @IsOptional() @IsInt() entityId?: number;
+  @ApiProperty({ type: [Number] }) @IsArray() @IsInt({ each: true }) roleIds: number[];
+}
+
+export class AssignRoleMapDto {
+  @ApiProperty({ type: [RoleMapEntryDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RoleMapEntryDto)
+  assignments: RoleMapEntryDto[];
 }

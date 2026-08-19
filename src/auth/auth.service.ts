@@ -29,6 +29,12 @@ export class AuthService {
     if (!user || !bcrypt.compareSync(pass, user.password)) {
       throw new BadRequestException(M.auth.invalidCredentials);
     }
+    // Checked after the password so a wrong password on a deactivated account
+    // still reads as bad credentials — the message must not tell an outsider
+    // which addresses are real accounts.
+    if (user.deactivatedAt) {
+      throw new UnauthorizedException(M.auth.deactivated);
+    }
     const { password, ...payload } = user;
     const isSuperAdmin = payload.roles?.some((r: any) => r.role?.level === 0) ?? false;
     return {
@@ -54,7 +60,9 @@ export class AuthService {
           },
         },
       });
-      if (!user) throw new UnauthorizedException();
+      // A token issued before deactivation stays cryptographically valid for
+      // its full 30 days, so the check has to happen here on every restore.
+      if (!user || user.deactivatedAt) throw new UnauthorizedException();
       const { password, ...payload } = user;
       return { access_token: token, user: payload };
     } catch {

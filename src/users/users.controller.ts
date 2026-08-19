@@ -1,9 +1,22 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, Request } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto } from './dtos/user.dto';
 import { Public } from '../auth/decorators/public.decorator';
+import { SkipThrottle } from '@nestjs/throttler';
+import { InternalGuard } from '../auth/guards/internal.guard';
 
+/**
+ * These routes are service-to-service only — the gateway rewrites everything
+ * under its auth prefix to /api/auth/..., so nothing here is reachable from a
+ * browser. The global throttler (10 requests a minute, per IP) is aimed at the
+ * login endpoints; applied here it counts five back-end services sharing a
+ * handful of source addresses against one small bucket, and the resolvers that
+ * call these routes turn the resulting 429 into an empty user list. A members
+ * page reading "no employees" is the visible end of that.
+ */
+@SkipThrottle()
+@UseGuards(InternalGuard)
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
@@ -19,8 +32,16 @@ export class UsersController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'Get all users' })
-  findAll(@Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.usersService.getAllUsers(page ? +page : 1, limit ? +limit : 100);
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('includeInactive') includeInactive?: string,
+  ) {
+    return this.usersService.getAllUsers(
+      page ? +page : 1,
+      limit ? +limit : 100,
+      includeInactive === 'true',
+    );
   }
 
   @Public()
@@ -43,6 +64,20 @@ export class UsersController {
   @ApiOperation({ summary: 'Delete user' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.deleteUser(id);
+  }
+
+  @Public()
+  @Post(':id/deactivate')
+  @ApiOperation({ summary: 'Deactivate user — keeps the row and all history' })
+  deactivate(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.deactivateUser(id);
+  }
+
+  @Public()
+  @Post(':id/reactivate')
+  @ApiOperation({ summary: 'Reactivate a deactivated user' })
+  reactivate(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.reactivateUser(id);
   }
 
   @Post('password-reset')
