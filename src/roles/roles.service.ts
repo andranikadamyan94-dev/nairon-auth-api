@@ -18,22 +18,25 @@ export class RolesService {
     });
   }
 
-  // Entity is ignored for now: a role's permissions are role-level. Returns the
-  // role with the union of its granted permissions across any entityId (the
-  // `_entity_configured_` sentinel is filtered out), deduped by permission id.
+  /**
+   * Grants are ADDITIVE per entity: rows at entityId 0 are the role's base
+   * set (apply everywhere), rows at a concrete entityId are extras for that
+   * entity only. Effective set in entity E = base ∪ E.
+   *
+   * Returns every row with its entityId so the grants UI can draw base and
+   * per-entity extras separately; rows for the same permission at several
+   * entities are all kept. The legacy `_entity_configured_` sentinel is
+   * filtered out.
+   */
   async getRoleById(id: number, _entityId?: number) {
     const role = await this.prisma.role.findUnique({
       where: { id },
       include: { permissions: { include: { permission: true } } },
     });
     if (!role) throw new NotFoundException(M.role.notFound);
-    const seen = new Set<number>();
-    const permissions = role.permissions.filter((rp) => {
-      if (rp.permission?.name === '_entity_configured_') return false;
-      if (seen.has(rp.permissionId)) return false;
-      seen.add(rp.permissionId);
-      return true;
-    });
+    const permissions = role.permissions.filter(
+      (rp) => rp.permission?.name !== '_entity_configured_',
+    );
     return { ...role, permissions };
   }
 
@@ -45,11 +48,13 @@ export class RolesService {
     return this.prisma.role.delete({ where: { id } });
   }
 
-  // Entity is ignored for now: permissions are assigned to the role directly.
-  // The full set is written at entityId 0 and ALL of the role's previous rows
-  // (any entityId, including legacy per-entity grants + sentinels) are cleared,
-  // so unchecking a permission actually removes it everywhere.
-  async assignPermissionsToRole(roleId: number, permissionNames: string[], _entityId = 0) {
+  /**
+   * Replaces ONE entity's grant set for the role: entityId 0 replaces the
+   * base (everywhere) set, a concrete entityId replaces only that entity's
+   * extras. Other entities' rows are untouched, so configuring one entity
+   * can never wipe another's. Also drops legacy sentinel rows for that scope.
+   */
+  async assignPermissionsToRole(roleId: number, permissionNames: string[], entityId = 0) {
     const names = [...new Set(permissionNames)].filter((n) => n !== '_entity_configured_');
     for (const name of names) {
       await this.prisma.permission.upsert({ where: { name }, create: { name }, update: {} });
@@ -57,10 +62,11 @@ export class RolesService {
     const permissions = names.length
       ? await this.prisma.permission.findMany({ where: { name: { in: names } } })
       : [];
-    await this.prisma.rolePermission.deleteMany({ where: { roleId } });
+    await this.prisma.rolePermission.deleteMany({ where: { roleId, entityId } });
     if (permissions.length > 0) {
       await this.prisma.rolePermission.createMany({
-        data: permissions.map((p) => ({ roleId, permissionId: p.id, entityId: 0 })),
+        data: permissions.map((p) => ({ roleId, permissionId: p.id, entityId })),
+        skipDuplicates: true,
       });
     }
     return { success: true };
