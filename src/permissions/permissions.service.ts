@@ -32,7 +32,9 @@ export const ALL_PERMISSIONS = [
   'create_project_task', 'update_project_task', 'delete_project_task', 'assign_project_task',
   'comment_project_task', 'manage_project_attachments', 'manage_project_subtasks',
   'manage_project_labels', 'manage_project_tags',
-  'move_task_between_projects',
+  'move_task_to_sprint', 'move_task_between_projects',
+  // Report export button on the assignments board (crm-client gates on it).
+  'generate_report',
   // See other people's private tasks (creators and assignees always see
   // their own). Super-admins and isAdmin bypass without the grant.
   'view_private_tasks',
