@@ -10,8 +10,8 @@ export const ALL_PERMISSIONS = [
   'assign_permissions',  'view_all_permissions',
   'create_user', 'update_user', 'password_request',  'delete_user',
   'view_user', 'view_user_permissions', 'assign_roles', 'view_all_users', 'set_otp', 'view_bonus_reports',
-  'log_policy', 'update_policy_log', 'delete_policy_log', 'view_policy_log', 'view_all_policy_logs',
-  'create_policy', 'update_policy', 'delete_policy', 'view_policy', 'view_all_policies',
+      
+      
   'view_transfers_chart', 'create_transfer', 'update_transfer', 'delete_transfer',
   'view_transfer', 'view_all_transfers',
   'create_payroll_run', 'view_all_payroll_runs',
@@ -26,7 +26,7 @@ export const ALL_PERMISSIONS = [
    
    
   
-  'page_finance',  'page_policies', 'page_members',  'page_applications',
+  'page_finance',   'page_members',  'page_applications',
   'page_assignments', 'page_warehouse',
   'create_project', 'update_project', 'delete_project', 'manage_project_members',
   'create_project_task', 'update_project_task', 'delete_project_task', 'assign_project_task',
