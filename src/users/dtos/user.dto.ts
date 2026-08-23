@@ -8,7 +8,6 @@ export class CreateUserDto {
   @ApiProperty() @IsString() lastName: string;
   @ApiPropertyOptional() @IsOptional() @IsString() middleName?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() phoneNumber?: string;
-  @ApiPropertyOptional() @IsOptional() @IsBoolean() isAdmin?: boolean;
 }
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {

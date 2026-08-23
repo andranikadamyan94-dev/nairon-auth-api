@@ -36,9 +36,10 @@ export class AuthService {
       throw new UnauthorizedException(M.auth.deactivated);
     }
     const { password, ...payload } = user;
-    const isSuperAdmin = payload.roles?.some((r: any) => r.role?.level === 0) ?? false;
+    // No admin claim in the token: super-admin (level-0 role) is entity-scoped,
+    // so every service resolves it per request against the selected entity.
     return {
-      access_token: await this.jwtService.signAsync({ id: payload.id, email: payload.email, isAdmin: payload.isAdmin || isSuperAdmin }),
+      access_token: await this.jwtService.signAsync({ id: payload.id, email: payload.email }),
       user: payload,
     };
   }

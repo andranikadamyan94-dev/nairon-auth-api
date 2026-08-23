@@ -17,7 +17,6 @@ model User {
   middleName        String?
   phoneNumber       String?
   isOneTimePassword Boolean    @default(true)
-  isAdmin           Boolean    @default(false)
   avatarUrl         String?
   /// Set when someone leaves. The account is kept so that attendance, payroll,
   /// task history and everything else that references this id stays readable —

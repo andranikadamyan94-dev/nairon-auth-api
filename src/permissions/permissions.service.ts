@@ -10,8 +10,8 @@ export const ALL_PERMISSIONS = [
   'assign_permissions',  'view_all_permissions',
   'create_user', 'update_user', 'password_request',  'delete_user',
   'view_user', 'view_user_permissions', 'assign_roles', 'view_all_users', 'set_otp', 'view_bonus_reports',
-  'log_policy', 'update_policy_log', 'delete_policy_log', 'view_policy_log', 'view_all_policy_logs',
-  'create_policy', 'update_policy', 'delete_policy', 'view_policy', 'view_all_policies',
+      
+      
   'view_transfers_chart', 'create_transfer', 'update_transfer', 'delete_transfer',
   'view_transfer', 'view_all_transfers',
   'create_payroll_run', 'view_all_payroll_runs',
@@ -26,15 +26,17 @@ export const ALL_PERMISSIONS = [
    
    
   
-  'page_finance',  'page_policies', 'page_members',  'page_applications',
+  'page_finance',   'page_members',  'page_applications',
   'page_assignments', 'page_warehouse',
   'create_project', 'update_project', 'delete_project', 'manage_project_members',
   'create_project_task', 'update_project_task', 'delete_project_task', 'assign_project_task',
   'comment_project_task', 'manage_project_attachments', 'manage_project_subtasks',
   'manage_project_labels', 'manage_project_tags',
-  'move_task_between_projects',
+  'move_task_to_sprint', 'move_task_between_projects',
+  // Report export button on the assignments board (crm-client gates on it).
+  'generate_report',
   // See other people's private tasks (creators and assignees always see
-  // their own). Super-admins and isAdmin bypass without the grant.
+  // their own). Super-admins bypass without the grant.
   'view_private_tasks',
   'create_sprint', 'update_sprint', 'delete_sprint', 'manage_sprint_status',
   'create_project_status', 'update_project_status', 'delete_project_status',
@@ -74,6 +76,8 @@ export const ALL_PERMISSIONS = [
   'view_learning', 'author_courses', 'assign_courses', 'manage_learning', 'view_team_learning',
   // Peer feedback
   'give_feedback', 'moderate_feedback', 'view_team_feedback', 'manage_feedback_forms',
+  // Disciplinary notices
+  'issue_disciplinary_notice', 'view_disciplinary_notices',
 ];
 
 @Injectable()

@@ -128,15 +128,14 @@ export class UsersService {
   }
 
   /**
-   * Admin here means what the guards mean by it: the isAdmin flag, or any role
-   * at level 0. Counting only isAdmin would let the last super-admin role holder
-   * be locked out.
+   * Admin here means what the guards mean by it: any role at level 0
+   * (the isAdmin flag is gone — level 0 is the only admin concept).
    */
   private async assertNotLastAdmin(id: number) {
     const admins = await this.prisma.user.findMany({
       where: {
         deactivatedAt: null,
-        OR: [{ isAdmin: true }, { roles: { some: { role: { level: 0 } } } }],
+        roles: { some: { role: { level: 0 } } },
       },
       select: { id: true },
     });
