@@ -38,6 +38,9 @@ export const ALL_PERMISSIONS = [
   // See other people's private tasks (creators and assignees always see
   // their own). Super-admins bypass without the grant.
   'view_private_tasks',
+  // See every project and the tasks on its boards, read-only — without it
+  // the projects list is membership-scoped. Does NOT unlock private tasks.
+  'view_all_projects',
   'create_sprint', 'update_sprint', 'delete_sprint', 'manage_sprint_status',
   'create_project_status', 'update_project_status', 'delete_project_status',
   'manage_backlogs',
