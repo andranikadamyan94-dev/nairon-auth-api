@@ -41,6 +41,9 @@ export const ALL_PERMISSIONS = [
   // See every project and the tasks on its boards, read-only — without it
   // the projects list is membership-scoped. Does NOT unlock private tasks.
   'view_all_projects',
+  // Edit the organizational tree (org restructure): units, re-parenting,
+  // heads, members. Reading the tree needs no permission.
+  'manage_org_structure',
   'create_sprint', 'update_sprint', 'delete_sprint', 'manage_sprint_status',
   'create_project_status', 'update_project_status', 'delete_project_status',
   'manage_backlogs',
