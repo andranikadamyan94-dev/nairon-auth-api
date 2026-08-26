@@ -53,7 +53,12 @@ export class UsersService {
    */
   async getAllUsers(page = 1, limit = 100, includeInactive = false) {
     const users = await this.prisma.user.findMany({
-      where: includeInactive ? undefined : { deactivatedAt: null },
+      // Superusers never appear in any people list — they exist only via
+      // direct-by-id lookups. This feeds every downstream directory.
+      where: {
+        ...(includeInactive ? {} : { deactivatedAt: null }),
+        roles: { none: { role: { isSuperAdmin: true } as any } },
+      },
       // id last: two people can share a name, and tied rows with no tiebreaker
       // may be arranged differently per query, which makes paged results skip
       // and repeat users.
@@ -128,14 +133,14 @@ export class UsersService {
   }
 
   /**
-   * Admin here means what the guards mean by it: any role at level 0
-   * (the isAdmin flag is gone — level 0 is the only admin concept).
+   * Admin here means what the guards mean by it: any role flagged
+   * isSuperAdmin (levels are pure seniority since the org restructure).
    */
   private async assertNotLastAdmin(id: number) {
     const admins = await this.prisma.user.findMany({
       where: {
         deactivatedAt: null,
-        roles: { some: { role: { level: 0 } } },
+        roles: { some: { role: { isSuperAdmin: true } as any } },
       },
       select: { id: true },
     });
