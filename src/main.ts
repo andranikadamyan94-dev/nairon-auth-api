@@ -32,7 +32,12 @@ async function bootstrap() {
     ].filter(Boolean),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    // Every authenticated request from any of the client apps carries
+    // X-Entity-ID (set globally by each app's axios interceptor whenever an
+    // entity is selected) — crm-api already allows it; this app didn't, so
+    // any authenticated call here (logout, etc.) with an entity selected
+    // failed the CORS preflight before it ever reached a route.
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Entity-ID'],
   });
 
   app.setGlobalPrefix('api');

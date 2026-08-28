@@ -1,3 +1,6 @@
 node_modules
 dist
 .env
+# Local dev leftovers — never commit (secrets / runtime data)
+.env.neon-backup
+*.log
