@@ -6,17 +6,18 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
-import { AuthPrismaService } from './prisma.service';
+import { PrismaModule } from './prisma.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
+    PrismaModule,
     AuthModule,
     UsersModule,
     RolesModule,
     PermissionsModule,
   ],
-  providers: [AuthPrismaService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
