@@ -5,7 +5,6 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { AuthGuard } from './guards/auth.guard';
 import { jwtConstants } from './constants';
-import { AuthPrismaService } from '../prisma.service';
 
 @Module({
   imports: [
@@ -17,7 +16,6 @@ import { AuthPrismaService } from '../prisma.service';
   ],
   providers: [
     AuthService,
-    AuthPrismaService,
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
   controllers: [AuthController],
