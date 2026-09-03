@@ -60,6 +60,7 @@ export const ALL_PERMISSIONS = [
   'view_partners', 'manage_partners',
   'view_procurement', 'view_resource_returns',
   'view_inventory_movements',
+  'manage_warehouses', 'manage_stock_transfers',
   // Warehouse notification audiences. manage_warehouse holders receive all
   // warehouse alerts regardless; these opt in people who don't manage the
   // warehouse but need to know.
