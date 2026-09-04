@@ -8,6 +8,10 @@ import { armenianValidationPipe } from './shared/validation-messages';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Behind the gateway every request used to arrive with the gateway's IP, so
+  // the per-IP throttle became ONE company-wide bucket (prod /me and even
+  // login 429s). The gateway now sends X-Forwarded-For; trust exactly one hop.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.use(cookieParser());
 
   app.enableCors({
