@@ -37,6 +37,10 @@ model Role {
   name         String
   level        Int              @default(1)
   departmentId Int?
+  /// System authority, off the seniority ladder. Never creatable or
+  /// assignable through any API/UI — set only at the database. Holders
+  /// ("superusers") are hidden from every people surface.
+  isSuperAdmin Boolean          @default(false)
   users        UserRole[]
   permissions  RolePermission[]
 

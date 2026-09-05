@@ -8,6 +8,10 @@ import { armenianValidationPipe } from './shared/validation-messages';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // Behind the gateway every request used to arrive with the gateway's IP, so
+  // the per-IP throttle became ONE company-wide bucket (prod /me and even
+  // login 429s). The gateway now sends X-Forwarded-For; trust exactly one hop.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.use(cookieParser());
 
   app.enableCors({
@@ -32,7 +36,12 @@ async function bootstrap() {
     ].filter(Boolean),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    // Every authenticated request from any of the client apps carries
+    // X-Entity-ID (set globally by each app's axios interceptor whenever an
+    // entity is selected) — crm-api already allows it; this app didn't, so
+    // any authenticated call here (logout, etc.) with an entity selected
+    // failed the CORS preflight before it ever reached a route.
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Entity-ID'],
   });
 
   app.setGlobalPrefix('api');

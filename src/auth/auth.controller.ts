@@ -10,7 +10,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
-import { Throttle } from "@nestjs/throttler";
+import { SkipThrottle, Throttle } from "@nestjs/throttler";
 import { Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import { Public } from "./decorators/public.decorator";
@@ -44,6 +44,9 @@ export class AuthController {
     return result;
   }
 
+  // Every app in every tab polls this for cross-app logout/permission sync —
+  // it's cookie-gated and cheap, and throttling it only broke that feature.
+  @SkipThrottle()
   @Public()
   @Get("me")
   @ApiOperation({ summary: "Get current session user" })

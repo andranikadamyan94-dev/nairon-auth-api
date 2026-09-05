@@ -38,9 +38,16 @@ export const ALL_PERMISSIONS = [
   // See other people's private tasks (creators and assignees always see
   // their own). Super-admins bypass without the grant.
   'view_private_tasks',
+  // See every project and the tasks on its boards, read-only — without it
+  // the projects list is membership-scoped. Does NOT unlock private tasks.
+  'view_all_projects',
+  // Edit the organizational tree (org restructure): units, re-parenting,
+  // heads, members. Reading the tree needs no permission.
+  'manage_org_structure',
   'create_sprint', 'update_sprint', 'delete_sprint', 'manage_sprint_status',
   'create_project_status', 'update_project_status', 'delete_project_status',
   'manage_backlogs',
+  'manage_construction_objects',
   'invite_calendar_departments', 'view_team_calendar',
   'view_warehouse',
   'manage_warehouse',
@@ -53,6 +60,8 @@ export const ALL_PERMISSIONS = [
   'view_resources', 'view_assets', 'view_maintenance',
   'view_partners', 'manage_partners',
   'view_procurement', 'view_resource_returns',
+  'view_inventory_movements',
+  'manage_warehouses', 'manage_stock_transfers',
   // Warehouse notification audiences. manage_warehouse holders receive all
   // warehouse alerts regardless; these opt in people who don't manage the
   // warehouse but need to know.
