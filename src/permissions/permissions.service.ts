@@ -80,6 +80,10 @@ export const ALL_PERMISSIONS = [
   'approve_applications',
   'add_assign_acceptor',
   'manage_department_requests',
+  // #2096 cross-entity requests: view = see + send for the active entity,
+  // manage = receiver-side actions (take, responsible, complete, reject).
+  'view_org_requests',
+  'manage_org_requests',
   'create_department_demand',
   // Learning platform
   'view_learning', 'author_courses', 'assign_courses', 'manage_learning', 'view_team_learning',
