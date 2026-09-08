@@ -1,12 +1,22 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { AuthPrismaService } from '../prisma.service';
 
+/** Phase 6 decouple (2026-09-08): legacy department permissions, no longer granted or checked. */
+export const RETIRED_PERMISSIONS = [
+  'create_department', 'update_department', 'delete_department', 'view_department',
+  'view_all_departments', 'assign_department_to_user', 'remove_user_from_department',
+  'view_department_roles',
+];
+
 export const ALL_PERMISSIONS = [
       
       
-  'create_department', 'update_department', 'delete_department', 'view_department',
-  'view_all_departments', 'assign_department_to_user', 'remove_user_from_department',
-  'create_role', 'update_role', 'delete_role', 'view_role', 'view_department_roles', 'view_all_roles',
+  // Phase 6 decouple (2026-09-08): the legacy department permissions
+  // (create/update/delete/view/view_all_department, assign/remove user,
+  // view_department_roles) are retired — units are governed by
+  // manage_org_structure and department lists are readable by any signed-in
+  // user. Existing grants stay in RolePermission until the tables go.
+  'create_role', 'update_role', 'delete_role', 'view_role', 'view_all_roles',
   'assign_permissions',  'view_all_permissions',
   'create_user', 'update_user', 'password_request',  'delete_user',
   'view_user', 'view_user_permissions', 'assign_roles', 'view_all_users', 'set_otp', 'view_bonus_reports',
@@ -112,7 +122,15 @@ export class PermissionsService implements OnModuleInit {
     );
   }
 
+  /**
+   * Catalog for the permissions UI. Retired names still exist as rows (and
+   * as grants) until the legacy department tables are dropped, but they are
+   * hidden here so nobody keeps granting them.
+   */
   async getAllPermissions() {
-    return this.prisma.permission.findMany({ orderBy: { name: 'asc' } });
+    return this.prisma.permission.findMany({
+      where: { name: { notIn: RETIRED_PERMISSIONS } },
+      orderBy: { name: 'asc' },
+    });
   }
 }
