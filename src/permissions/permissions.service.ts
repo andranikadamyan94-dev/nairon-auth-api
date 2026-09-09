@@ -90,6 +90,8 @@ export const ALL_PERMISSIONS = [
   'approve_applications',
   'add_assign_acceptor',
   'manage_department_requests',
+  // Oversight: see every department request of the organization (read-only).
+  'view_all_department_requests',
   // #2096 cross-entity requests: view = see + send for the active entity,
   // manage = receiver-side actions (take, responsible, complete, reject).
   'view_org_requests',
