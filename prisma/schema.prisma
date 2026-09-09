@@ -27,6 +27,7 @@ model User {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   roles             UserRole[]
+  oauthGrants       OAuthGrant[]
 
   @@index([email])
   @@index([deactivatedAt])
@@ -75,4 +76,110 @@ model RolePermission {
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
   @@id([roleId, permissionId, entityId])
+}
+// ─── OAuth 2.1 authorization server ──────────────────────────────────────────
+//
+// A second way in for ChatGPT, not a second account system. Every grant below
+// points at a row in User; the password check, the roles, the permissions and
+// the entity scoping are the ones this service already had. What OAuth adds is
+// a delegated, revocable, audience-bound credential — nothing about who a
+// person is or what they may do.
+
+/// A client registered through RFC 7591 Dynamic Client Registration.
+///
+/// Public clients only: ChatGPT cannot keep a secret, so authentication of the
+/// client is PKCE plus an exact redirect URI, never a shared password.
+model OAuthClient {
+  /// The issued client_id.
+  id                      String    @id
+  clientName              String
+  /// Exact strings. Matching is byte-for-byte — no prefixes, no wildcards, no
+  /// normalisation — because a loose redirect URI is how authorization codes
+  /// get delivered to someone else.
+  redirectUris            String[]
+  grantTypes              String[]  @default(["authorization_code", "refresh_token"])
+  scopes                  String[]  @default(["nairon:mcp", "offline_access"])
+  tokenEndpointAuthMethod String    @default("none")
+  /// SHA-256 of the registration access token. The token itself is never kept.
+  registrationTokenHash   String?
+  createdAt               DateTime  @default(now())
+  /// Set to retire a client without losing the audit trail of what it did.
+  disabledAt              DateTime?
+
+  grants OAuthGrant[]
+  codes  OAuthAuthorizationCode[]
+
+  @@index([disabledAt])
+}
+
+/// One person's standing consent for one client, bound to one workspace.
+///
+/// The entity is decided here, at consent, by the person — and read back from
+/// here at every token exchange. It is never accepted from ChatGPT, from the
+/// model, or from a tool argument.
+model OAuthGrant {
+  id         String    @id
+  userId     Int
+  clientId   String
+  entityId   Int
+  scope      String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  /// Revoking here kills the refresh chain and every access token still in
+  /// flight, because the exchange checks this row on every call.
+  revokedAt  DateTime?
+
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client        OAuthClient              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  refreshTokens OAuthRefreshToken[]
+  codes         OAuthAuthorizationCode[]
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([revokedAt])
+}
+
+/// A one-time authorization code. Lives about a minute.
+model OAuthAuthorizationCode {
+  /// SHA-256 of the code. The code itself is never stored, so a copy of this
+  /// table is not a set of usable codes.
+  codeHash            String    @id
+  grantId             String
+  clientId            String
+  /// The exact redirect URI the code was issued for; the token request must
+  /// present the same one.
+  redirectUri         String
+  codeChallenge       String
+  codeChallengeMethod String    @default("S256")
+  /// RFC 8707: the resource the resulting token will be bound to.
+  resource            String?
+  expiresAt           DateTime
+  consumedAt          DateTime?
+  createdAt           DateTime  @default(now())
+
+  grant  OAuthGrant  @relation(fields: [grantId], references: [id], onDelete: Cascade)
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([grantId])
+  @@index([expiresAt])
+}
+
+/// A rotating refresh token. Only ever one live token per chain.
+///
+/// Presenting one that has already been used is treated as theft rather than
+/// as a retry: the whole grant is revoked, because either the copy or the
+/// original is in the wrong hands and there is no way to tell which.
+model OAuthRefreshToken {
+  tokenHash  String    @id
+  grantId    String
+  /// Hash of the token issued in its place, set when this one is spent.
+  replacedBy String?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  grant OAuthGrant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@index([grantId])
+  @@index([expiresAt])
 }

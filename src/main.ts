@@ -40,7 +40,22 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Entity-ID'],
   });
 
-  app.setGlobalPrefix('api');
+  // The OAuth surface sits at the root, not under /api.
+  //
+  // An authorization server's endpoints are part of its published identity:
+  // whatever `issuer` says plus /oauth/token has to be the URL that actually
+  // answers, and discovery documents live at /.well-known by definition. The
+  // internal token-exchange route is deliberately NOT excluded — it belongs to
+  // the estate's own /api space, not to any public protocol.
+  app.setGlobalPrefix('api', {
+    exclude: [
+      '.well-known/(.*)',
+      'oauth/authorize',
+      'oauth/token',
+      'oauth/register',
+      'oauth/revoke',
+    ],
+  });
 
   app.useGlobalPipes(armenianValidationPipe({ transformOptions: { enableImplicitConversion: true } }));
 
