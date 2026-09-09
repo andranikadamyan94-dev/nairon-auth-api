@@ -94,6 +94,8 @@ export const ALL_PERMISSIONS = [
   'view_all_department_requests',
   // #2096 cross-entity requests: view = see + send for the active entity,
   // manage = receiver-side actions (take, responsible, complete, reject).
+  // Send a cross-entity request the receiving organization cannot reject.
+  'create_org_demand',
   'view_org_requests',
   'manage_org_requests',
   'create_department_demand',
