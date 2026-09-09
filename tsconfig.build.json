@@ -1,4 +1,5 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "dist"]
+  "// note": "Specs are excluded so the shipped image carries no test code and the build does not depend on jest's types.",
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/__tests__/**"]
 }
