@@ -48,8 +48,10 @@ export const ALL_PERMISSIONS = [
   // See other people's private tasks (creators and assignees always see
   // their own). Super-admins bypass without the grant.
   'view_private_tasks',
-  // See every project and the tasks on its boards, read-only — without it
-  // the projects list is membership-scoped. Does NOT unlock private tasks.
+  // See every project of the organization you are acting in, and the tasks
+  // on its boards, read-only — without it the projects list is
+  // membership-scoped. Scoped to that one organization since 2026-09-11;
+  // does NOT unlock private tasks.
   'view_all_projects',
   // Edit the organizational tree (org restructure): units, re-parenting,
   // heads, members. Reading the tree needs no permission.
