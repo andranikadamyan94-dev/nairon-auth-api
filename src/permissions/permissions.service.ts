@@ -72,6 +72,10 @@ export const ALL_PERMISSIONS = [
   'view_resources', 'view_assets', 'view_maintenance',
   'view_partners', 'manage_partners',
   'view_procurement', 'view_resource_returns',
+  // Purchase requisitions (CRM → warehouse). Both resolved for the requisition's
+  // own organization: file one there / let it through to procurement or turn
+  // it down there. manage_warehouse does not stand in for either.
+  'create_purchase_requisition', 'approve_purchase_requisition',
   'view_inventory_movements',
   'manage_warehouses', 'manage_stock_transfers',
   // Warehouse notification audiences. manage_warehouse holders receive all
