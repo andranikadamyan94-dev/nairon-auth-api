@@ -84,12 +84,16 @@ export const ALL_PERMISSIONS = [
   'give_feedback', 'moderate_feedback', 'view_team_feedback', 'manage_feedback_forms',
   // Disciplinary notices
   'issue_disciplinary_notice', 'view_disciplinary_notices',
-  // AI assistant. Two switches rather than one: a role can be given the
+  // AI assistant. Three switches rather than one: a role can be given the
   // assistant for reading without also being handed a way to change Nairon
-  // data through it. Neither grants access to anything on its own — the
-  // service that owns the data still authorizes every call the assistant
-  // makes on the user's behalf.
-  'use_ai_assistant', 'ai_write_actions',
+  // data through it, or a microphone. None of them grants access to anything
+  // on its own — the service that owns the data still authorizes every call
+  // the assistant makes on the user's behalf.
+  //
+  // use_ai_voice is additive and never a substitute: voice needs it AND
+  // use_ai_assistant. It is separate because a spoken minute is billed and a
+  // typed one is not, so the organisation turns voice on per role.
+  'use_ai_assistant', 'ai_write_actions', 'use_ai_voice',
 ];
 
 @Injectable()
