@@ -1,12 +1,22 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { AuthPrismaService } from '../prisma.service';
 
+/** Phase 6 decouple (2026-09-08): legacy department permissions, no longer granted or checked. */
+export const RETIRED_PERMISSIONS = [
+  'create_department', 'update_department', 'delete_department', 'view_department',
+  'view_all_departments', 'assign_department_to_user', 'remove_user_from_department',
+  'view_department_roles',
+];
+
 export const ALL_PERMISSIONS = [
       
       
-  'create_department', 'update_department', 'delete_department', 'view_department',
-  'view_all_departments', 'assign_department_to_user', 'remove_user_from_department',
-  'create_role', 'update_role', 'delete_role', 'view_role', 'view_department_roles', 'view_all_roles',
+  // Phase 6 decouple (2026-09-08): the legacy department permissions
+  // (create/update/delete/view/view_all_department, assign/remove user,
+  // view_department_roles) are retired — units are governed by
+  // manage_org_structure and department lists are readable by any signed-in
+  // user. Existing grants stay in RolePermission until the tables go.
+  'create_role', 'update_role', 'delete_role', 'view_role', 'view_all_roles',
   'assign_permissions',  'view_all_permissions',
   'create_user', 'update_user', 'password_request',  'delete_user',
   'view_user', 'view_user_permissions', 'assign_roles', 'view_all_users', 'set_otp', 'view_bonus_reports',
@@ -38,8 +48,10 @@ export const ALL_PERMISSIONS = [
   // See other people's private tasks (creators and assignees always see
   // their own). Super-admins bypass without the grant.
   'view_private_tasks',
-  // See every project and the tasks on its boards, read-only — without it
-  // the projects list is membership-scoped. Does NOT unlock private tasks.
+  // See every project of the organization you are acting in, and the tasks
+  // on its boards, read-only — without it the projects list is
+  // membership-scoped. Scoped to that one organization since 2026-09-11;
+  // does NOT unlock private tasks.
   'view_all_projects',
   // Edit the organizational tree (org restructure): units, re-parenting,
   // heads, members. Reading the tree needs no permission.
@@ -47,6 +59,7 @@ export const ALL_PERMISSIONS = [
   'create_sprint', 'update_sprint', 'delete_sprint', 'manage_sprint_status',
   'create_project_status', 'update_project_status', 'delete_project_status',
   'manage_backlogs',
+  'manage_construction_objects',
   'invite_calendar_departments', 'view_team_calendar',
   'view_warehouse',
   'manage_warehouse',
@@ -59,6 +72,12 @@ export const ALL_PERMISSIONS = [
   'view_resources', 'view_assets', 'view_maintenance',
   'view_partners', 'manage_partners',
   'view_procurement', 'view_resource_returns',
+  // Purchase requisitions (CRM → warehouse). Both resolved for the requisition's
+  // own organization: file one there / let it through to procurement or turn
+  // it down there. manage_warehouse does not stand in for either.
+  'create_purchase_requisition', 'approve_purchase_requisition',
+  'view_inventory_movements',
+  'manage_warehouses', 'manage_stock_transfers',
   // Warehouse notification audiences. manage_warehouse holders receive all
   // warehouse alerts regardless; these opt in people who don't manage the
   // warehouse but need to know.
@@ -77,6 +96,14 @@ export const ALL_PERMISSIONS = [
   'approve_applications',
   'add_assign_acceptor',
   'manage_department_requests',
+  // Oversight: see every department request of the organization (read-only).
+  'view_all_department_requests',
+  // #2096 cross-entity requests: view = see + send for the active entity,
+  // manage = receiver-side actions (take, responsible, complete, reject).
+  // Send a cross-entity request the receiving organization cannot reject.
+  'create_org_demand',
+  'view_org_requests',
+  'manage_org_requests',
   'create_department_demand',
   // Learning platform
   'view_learning', 'author_courses', 'assign_courses', 'manage_learning', 'view_team_learning',
@@ -115,7 +142,15 @@ export class PermissionsService implements OnModuleInit {
     );
   }
 
+  /**
+   * Catalog for the permissions UI. Retired names still exist as rows (and
+   * as grants) until the legacy department tables are dropped, but they are
+   * hidden here so nobody keeps granting them.
+   */
   async getAllPermissions() {
-    return this.prisma.permission.findMany({ orderBy: { name: 'asc' } });
+    return this.prisma.permission.findMany({
+      where: { name: { notIn: RETIRED_PERMISSIONS } },
+      orderBy: { name: 'asc' },
+    });
   }
 }

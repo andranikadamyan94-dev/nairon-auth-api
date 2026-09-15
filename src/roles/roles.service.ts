@@ -16,15 +16,17 @@ export class RolesService {
     }
   }
 
-  async createRole(name: string, level: number, departmentId?: number) {
-    return this.prisma.role.create({ data: { name, level, departmentId } });
+  // Phase 6 decouple (2026-09-08): Role.departmentId is retired — never
+  // written, never filtered on. The column stays until the legacy tables go.
+  async createRole(name: string, level: number, _departmentId?: number) {
+    return this.prisma.role.create({ data: { name, level } });
   }
 
-  async getAllRoles(departmentId?: number) {
+  async getAllRoles(_departmentId?: number) {
     // Super-admin roles never appear in role lists — they are not part of
     // the grantable catalog.
     return this.prisma.role.findMany({
-      where: { ...(departmentId ? { departmentId } : {}), isSuperAdmin: false } as any,
+      where: { isSuperAdmin: false } as any,
       include: { permissions: { include: { permission: true } } },
       orderBy: { level: 'asc' },
     });
@@ -54,7 +56,8 @@ export class RolesService {
 
   async updateRole(id: number, data: { name?: string; level?: number; departmentId?: number | null }) {
     await this.assertNotSuperAdminRole(id);
-    return this.prisma.role.update({ where: { id }, data });
+    const { departmentId: _retired, ...rest } = data;
+    return this.prisma.role.update({ where: { id }, data: rest });
   }
 
   async deleteRole(id: number) {

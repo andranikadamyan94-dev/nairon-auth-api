@@ -24,6 +24,10 @@ model User {
   /// catch it. A deactivated user cannot log in, is rejected by every guard,
   /// and is absent from every list; only historical records still name them.
   deactivatedAt     DateTime?
+  /// External contractor (#2200, 2026-09-15). Access is a matter of roles and
+  /// permissions like anyone else; this flag only keeps the person out of the
+  /// CRM performance and bonus calculations.
+  isOutsource       Boolean    @default(false)
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   roles             UserRole[]

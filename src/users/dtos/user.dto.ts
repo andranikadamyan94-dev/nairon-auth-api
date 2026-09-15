@@ -8,6 +8,8 @@ export class CreateUserDto {
   @ApiProperty() @IsString() lastName: string;
   @ApiPropertyOptional() @IsOptional() @IsString() middleName?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() phoneNumber?: string;
+  /** #2200 — external contractor, excluded from performance calculations. */
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() isOutsource?: boolean;
 }
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {
