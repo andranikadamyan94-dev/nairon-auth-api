@@ -1,3 +1,4 @@
+import { assertJwtConfigured } from './auth/constants';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -8,6 +9,9 @@ import { armenianValidationPipe } from './shared/validation-messages';
 import { assertInternalAuthConfigured } from './auth/guards/internal.guard';
 
 async function bootstrap() {
+  // A signing key has no safe default; refuse to start rather than fall back
+  // to one published in this repository. See auth/constants.ts.
+  assertJwtConfigured();
   /*
    * Second layer, before anything listens.
    *
