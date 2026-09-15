@@ -5,8 +5,19 @@ import { AppModule } from './app.module';
 import * as cookieParser from 'cookie-parser';
 import { PrismaExceptionFilter } from './shared/filters/prisma-exception.filter';
 import { armenianValidationPipe } from './shared/validation-messages';
+import { assertInternalAuthConfigured } from './auth/guards/internal.guard';
 
 async function bootstrap() {
+  /*
+   * Second layer, before anything listens.
+   *
+   * InternalGuard fails closed on its own, so this is not what makes the
+   * service safe — it is what makes a missing secret visible. Without it the
+   * symptom surfaces somewhere else entirely: a members page reading "no
+   * employees", because every internal resolver is quietly being refused.
+   */
+  assertInternalAuthConfigured();
+
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
 
