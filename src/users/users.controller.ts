@@ -36,11 +36,13 @@ export class UsersController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('includeInactive') includeInactive?: string,
+    @Query('includeSuperAdmins') includeSuperAdmins?: string,
   ) {
     return this.usersService.getAllUsers(
       page ? +page : 1,
       limit ? +limit : 100,
       includeInactive === 'true',
+      includeSuperAdmins === 'true',
     );
   }
 

@@ -51,13 +51,15 @@ export class UsersService {
    * userId back into a name on a historical record. A past task assignee or
    * payroll row must still name the person, not render a blank.
    */
-  async getAllUsers(page = 1, limit = 100, includeInactive = false) {
+  async getAllUsers(page = 1, limit = 100, includeInactive = false, includeSuperAdmins = false) {
     const users = await this.prisma.user.findMany({
-      // Superusers never appear in any people list — they exist only via
-      // direct-by-id lookups. This feeds every downstream directory.
+      // Superusers stay out of every people list — they exist only via
+      // direct-by-id lookups. This feeds every downstream directory. The one
+      // exception is HR's members page read by a super-admin, which asks for
+      // them explicitly so their roles can be managed (2026-09-16).
       where: {
         ...(includeInactive ? {} : { deactivatedAt: null }),
-        roles: { none: { role: { isSuperAdmin: true } as any } },
+        ...(includeSuperAdmins ? {} : { roles: { none: { role: { isSuperAdmin: true } as any } } }),
       },
       // id last: two people can share a name, and tied rows with no tiebreaker
       // may be arranged differently per query, which makes paged results skip

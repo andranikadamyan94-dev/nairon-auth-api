@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuthPrismaService } from '../prisma.service';
 import { M } from '../constants/messages';
 
@@ -22,11 +22,13 @@ export class RolesService {
     return this.prisma.role.create({ data: { name, level } });
   }
 
-  async getAllRoles(_departmentId?: number) {
-    // Super-admin roles never appear in role lists — they are not part of
-    // the grantable catalog.
+  async getAllRoles(_departmentId?: number, includeSuperAdmin = false) {
+    // Super-admin roles stay out of role lists — they are not part of the
+    // grantable catalog — unless HR asks for them on behalf of a super-admin
+    // filling the member form (2026-09-16: super-admins assign the role to
+    // each other from there).
     return this.prisma.role.findMany({
-      where: { isSuperAdmin: false } as any,
+      where: includeSuperAdmin ? {} : ({ isSuperAdmin: false } as any),
       include: { permissions: { include: { permission: true } } },
       orderBy: { level: 'asc' },
     });
@@ -125,6 +127,7 @@ export class RolesService {
   async assignRoleMapToUser(
     userId: number,
     assignments: { entityId?: number; roleIds: number[] }[],
+    opts: { manageSuperAdmin?: boolean; actorId?: number } = {},
   ) {
     const rows = assignments.flatMap((a) =>
       [...new Set(a.roleIds ?? [])].map((roleId) => ({
@@ -133,10 +136,47 @@ export class RolesService {
         entityId: a.entityId ?? 0,
       })),
     );
-    await this.assertNoSuperAdminRoles(rows.map((r) => r.roleId));
+    if (!opts.manageSuperAdmin) {
+      await this.assertNoSuperAdminRoles(rows.map((r) => r.roleId));
+      await this.prisma.$transaction([
+        // The full-map replace never touches super-admin assignments either.
+        this.prisma.userRole.deleteMany({ where: { userId, role: { isSuperAdmin: false } as any } }),
+        ...(rows.length
+          ? [this.prisma.userRole.createMany({ data: rows, skipDuplicates: true })]
+          : []),
+      ]);
+      return { success: true };
+    }
+
+    // A super-admin is saving the form (HR authorized the change per entity):
+    // the map is the whole truth, super-admin assignments included. Two
+    // invariants stay with the data, whoever asks: nobody drops their own
+    // super-admin role by accident, and the last active super-admin stays.
+    const superRoleIds = new Set(
+      (await this.prisma.role.findMany({ where: { isSuperAdmin: true } as any, select: { id: true } })).map((r) => r.id),
+    );
+    const current = await this.prisma.userRole.findMany({
+      where: { userId, roleId: { in: [...superRoleIds] } },
+      select: { roleId: true, entityId: true },
+    });
+    const keeps = (c: { roleId: number; entityId: number }) =>
+      rows.some((r) => r.roleId === c.roleId && r.entityId === c.entityId);
+    const dropsSuper = current.some((c) => !keeps(c));
+    if (dropsSuper && opts.actorId === userId) {
+      throw new BadRequestException(M.role.superAdminSelfRemoval);
+    }
+    if (dropsSuper && !rows.some((r) => superRoleIds.has(r.roleId))) {
+      const others = await this.prisma.user.count({
+        where: {
+          id: { not: userId },
+          deactivatedAt: null,
+          roles: { some: { role: { isSuperAdmin: true } as any } },
+        },
+      });
+      if (others === 0) throw new ConflictException(M.role.lastSuperAdmin);
+    }
     await this.prisma.$transaction([
-      // The full-map replace never touches super-admin assignments either.
-      this.prisma.userRole.deleteMany({ where: { userId, role: { isSuperAdmin: false } as any } }),
+      this.prisma.userRole.deleteMany({ where: { userId } }),
       ...(rows.length
         ? [this.prisma.userRole.createMany({ data: rows, skipDuplicates: true })]
         : []),
