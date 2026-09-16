@@ -26,8 +26,14 @@ export class RolesController {
 
   @Get()
   @ApiOperation({ summary: 'Get all roles' })
-  findAll(@Query('departmentId') departmentId?: string) {
-    return this.rolesService.getAllRoles(departmentId ? Number(departmentId) : undefined);
+  findAll(
+    @Query('departmentId') departmentId?: string,
+    @Query('includeSuperAdmin') includeSuperAdmin?: string,
+  ) {
+    return this.rolesService.getAllRoles(
+      departmentId ? Number(departmentId) : undefined,
+      includeSuperAdmin === 'true',
+    );
   }
 
   @Get(':id')
@@ -63,6 +69,9 @@ export class RolesController {
   @Post('assign-map/:userId')
   @ApiOperation({ summary: 'Replace the user’s complete per-entity role map' })
   assignMap(@Param('userId', ParseIntPipe) userId: number, @Body() dto: AssignRoleMapDto) {
-    return this.rolesService.assignRoleMapToUser(userId, dto.assignments ?? []);
+    return this.rolesService.assignRoleMapToUser(userId, dto.assignments ?? [], {
+      manageSuperAdmin: dto.manageSuperAdmin === true,
+      actorId: dto.actorId,
+    });
   }
 }

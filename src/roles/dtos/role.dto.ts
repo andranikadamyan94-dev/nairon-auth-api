@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsInt, IsOptional, IsString, Min, MinLength, ValidateNested } from 'class-validator';
+import { IsArray, IsBoolean, IsInt, IsOptional, IsString, Min, MinLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateRoleDto {
@@ -34,4 +34,12 @@ export class AssignRoleMapDto {
   @ValidateNested({ each: true })
   @Type(() => RoleMapEntryDto)
   assignments: RoleMapEntryDto[];
+  /**
+   * Set by HR when the acting user is a super-admin: the map then states the
+   * super-admin assignments too, instead of leaving them untouched. HR has
+   * authorized the change per entity; this service only keeps the invariants
+   * (no self-removal, never the last one).
+   */
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() manageSuperAdmin?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsInt() actorId?: number;
 }
