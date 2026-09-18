@@ -18,6 +18,28 @@ import { OAuthError, OAuthService } from './oauth.service';
 import { errorPage, loginPage, workspacePage } from './views';
 
 /**
+ * One already-validated redirect URI, as a CSP source expression.
+ *
+ * Origin and path only. CSP ignores a query string in a source and a fragment
+ * is not allowed in one, so carrying either would at best be noise and at
+ * worst make the policy unparseable — and the code and state are appended to
+ * this URI later anyway, which CSP matches by path prefix regardless.
+ *
+ * Anything that is not an absolute http(s) URI yields nothing, so a malformed
+ * value can only ever narrow the policy back to `'self'` — never widen it.
+ */
+export const cspSource = (uri?: string): string => {
+  if (!uri) return '';
+  try {
+    const parsed = new URL(uri);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return '';
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return '';
+  }
+};
+
+/**
  * The OAuth 2.1 surface ChatGPT talks to.
  *
  * Mounted at the root rather than under `/api`, because these paths are part
@@ -85,6 +107,8 @@ export class OAuthController {
     return this.html(
       res,
       loginPage({ sealed: this.oauth.sealRequest(request), clientName: client, scope: request.scope }),
+      HttpStatus.OK,
+      request.redirectUri,
     );
   }
 
@@ -128,6 +152,7 @@ export class OAuthController {
           email: String(body?.email ?? ''),
         }),
         HttpStatus.UNAUTHORIZED,
+        request.redirectUri,
       );
     }
 
@@ -151,6 +176,8 @@ export class OAuthController {
     return this.html(
       res,
       workspacePage({ sealed, clientName, scope: request.scope, workspaces }),
+      HttpStatus.OK,
+      request.redirectUri,
     );
   }
 
@@ -202,7 +229,28 @@ export class OAuthController {
     return this.oauth.clientName(clientId);
   }
 
-  private html(res: Response, body: string, status = HttpStatus.OK) {
+  /**
+   * Where a form on this page may end up — which is not only where it posts.
+   *
+   * `form-action` governs the whole navigation a submit starts, redirects
+   * included. Signing in posts to this origin, which `'self'` covers, and the
+   * server answers 302 to the client's callback — so with `'self'` alone the
+   * browser blocks that last hop and the person is left looking at a page that
+   * appears to have done nothing. It had in fact done everything: the
+   * authorization code was issued and the grant stored. The flow ended in
+   * silence, which is the worst way for it to end.
+   *
+   * So a page that carries a form also names the one callback that form can
+   * legitimately reach. Only the URI this request was validated against is
+   * used — the value that already had to match the client's registered list
+   * byte for byte, or no form would have been rendered at all. Nothing from the
+   * query string reaches this header unchecked.
+   *
+   * The password does not follow the redirect: a 302 answering a POST is
+   * fetched as a GET, so the callback receives the code in the URL and no body.
+   */
+  private html(res: Response, body: string, status = HttpStatus.OK, callback?: string) {
+    const formAction = ["'self'", cspSource(callback)].filter(Boolean).join(' ');
     return res
       .status(status)
       .setHeader('Content-Type', 'text/html; charset=utf-8')
@@ -211,7 +259,7 @@ export class OAuthController {
       // enforces it too.
       .setHeader(
         'Content-Security-Policy',
-        "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
+        `default-src 'none'; style-src 'unsafe-inline'; form-action ${formAction}; frame-ancestors 'none'`,
       )
       .send(body);
   }
