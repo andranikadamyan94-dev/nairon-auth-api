@@ -1,5 +1,7 @@
+-- Made idempotent 2026-09-20 (owner's rule: every statement guarded), after it
+-- had already run on staging; Prisma accepts the edited file where applied.
 -- CreateTable
-CREATE TABLE "OAuthClient" (
+CREATE TABLE IF NOT EXISTS "OAuthClient" (
     "id" TEXT NOT NULL,
     "clientName" TEXT NOT NULL,
     "redirectUris" TEXT[],
@@ -14,7 +16,7 @@ CREATE TABLE "OAuthClient" (
 );
 
 -- CreateTable
-CREATE TABLE "OAuthGrant" (
+CREATE TABLE IF NOT EXISTS "OAuthGrant" (
     "id" TEXT NOT NULL,
     "userId" INTEGER NOT NULL,
     "clientId" TEXT NOT NULL,
@@ -28,7 +30,7 @@ CREATE TABLE "OAuthGrant" (
 );
 
 -- CreateTable
-CREATE TABLE "OAuthAuthorizationCode" (
+CREATE TABLE IF NOT EXISTS "OAuthAuthorizationCode" (
     "codeHash" TEXT NOT NULL,
     "grantId" TEXT NOT NULL,
     "clientId" TEXT NOT NULL,
@@ -44,7 +46,7 @@ CREATE TABLE "OAuthAuthorizationCode" (
 );
 
 -- CreateTable
-CREATE TABLE "OAuthRefreshToken" (
+CREATE TABLE IF NOT EXISTS "OAuthRefreshToken" (
     "tokenHash" TEXT NOT NULL,
     "grantId" TEXT NOT NULL,
     "replacedBy" TEXT,
@@ -56,40 +58,60 @@ CREATE TABLE "OAuthRefreshToken" (
 );
 
 -- CreateIndex
-CREATE INDEX "OAuthClient_disabledAt_idx" ON "OAuthClient"("disabledAt");
+CREATE INDEX IF NOT EXISTS "OAuthClient_disabledAt_idx" ON "OAuthClient"("disabledAt");
 
 -- CreateIndex
-CREATE INDEX "OAuthGrant_userId_idx" ON "OAuthGrant"("userId");
+CREATE INDEX IF NOT EXISTS "OAuthGrant_userId_idx" ON "OAuthGrant"("userId");
 
 -- CreateIndex
-CREATE INDEX "OAuthGrant_clientId_idx" ON "OAuthGrant"("clientId");
+CREATE INDEX IF NOT EXISTS "OAuthGrant_clientId_idx" ON "OAuthGrant"("clientId");
 
 -- CreateIndex
-CREATE INDEX "OAuthGrant_revokedAt_idx" ON "OAuthGrant"("revokedAt");
+CREATE INDEX IF NOT EXISTS "OAuthGrant_revokedAt_idx" ON "OAuthGrant"("revokedAt");
 
 -- CreateIndex
-CREATE INDEX "OAuthAuthorizationCode_grantId_idx" ON "OAuthAuthorizationCode"("grantId");
+CREATE INDEX IF NOT EXISTS "OAuthAuthorizationCode_grantId_idx" ON "OAuthAuthorizationCode"("grantId");
 
 -- CreateIndex
-CREATE INDEX "OAuthAuthorizationCode_expiresAt_idx" ON "OAuthAuthorizationCode"("expiresAt");
+CREATE INDEX IF NOT EXISTS "OAuthAuthorizationCode_expiresAt_idx" ON "OAuthAuthorizationCode"("expiresAt");
 
 -- CreateIndex
-CREATE INDEX "OAuthRefreshToken_grantId_idx" ON "OAuthRefreshToken"("grantId");
+CREATE INDEX IF NOT EXISTS "OAuthRefreshToken_grantId_idx" ON "OAuthRefreshToken"("grantId");
 
 -- CreateIndex
-CREATE INDEX "OAuthRefreshToken_expiresAt_idx" ON "OAuthRefreshToken"("expiresAt");
+CREATE INDEX IF NOT EXISTS "OAuthRefreshToken_expiresAt_idx" ON "OAuthRefreshToken"("expiresAt");
 
 -- AddForeignKey
-ALTER TABLE "OAuthGrant" ADD CONSTRAINT "OAuthGrant_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'OAuthGrant_userId_fkey') THEN
+    ALTER TABLE "OAuthGrant" ADD CONSTRAINT "OAuthGrant_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "OAuthGrant" ADD CONSTRAINT "OAuthGrant_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "OAuthClient"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'OAuthGrant_clientId_fkey') THEN
+    ALTER TABLE "OAuthGrant" ADD CONSTRAINT "OAuthGrant_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "OAuthClient"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "OAuthAuthorizationCode" ADD CONSTRAINT "OAuthAuthorizationCode_grantId_fkey" FOREIGN KEY ("grantId") REFERENCES "OAuthGrant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'OAuthAuthorizationCode_grantId_fkey') THEN
+    ALTER TABLE "OAuthAuthorizationCode" ADD CONSTRAINT "OAuthAuthorizationCode_grantId_fkey" FOREIGN KEY ("grantId") REFERENCES "OAuthGrant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "OAuthAuthorizationCode" ADD CONSTRAINT "OAuthAuthorizationCode_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "OAuthClient"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'OAuthAuthorizationCode_clientId_fkey') THEN
+    ALTER TABLE "OAuthAuthorizationCode" ADD CONSTRAINT "OAuthAuthorizationCode_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "OAuthClient"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- AddForeignKey
-ALTER TABLE "OAuthRefreshToken" ADD CONSTRAINT "OAuthRefreshToken_grantId_fkey" FOREIGN KEY ("grantId") REFERENCES "OAuthGrant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'OAuthRefreshToken_grantId_fkey') THEN
+    ALTER TABLE "OAuthRefreshToken" ADD CONSTRAINT "OAuthRefreshToken_grantId_fkey" FOREIGN KEY ("grantId") REFERENCES "OAuthGrant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
