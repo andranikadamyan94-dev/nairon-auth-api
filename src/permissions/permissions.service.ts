@@ -121,6 +121,10 @@ export const ALL_PERMISSIONS = [
   // use_ai_assistant. It is separate because a spoken minute is billed and a
   // typed one is not, so the organisation turns voice on per role.
   'use_ai_assistant', 'ai_write_actions', 'use_ai_voice',
+  // Marketing app (2026-09-22 build plan, Phase 2). Catalogue only: no role
+  // is granted anything here; the owner grants per organization as usual.
+  'marketing_view', 'marketing_manage_campaigns', 'marketing_edit_content',
+  'marketing_approve_content', 'marketing_manage_channels', 'marketing_manage_budget',
 ];
 
 @Injectable()
