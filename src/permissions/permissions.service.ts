@@ -60,6 +60,9 @@ export const ALL_PERMISSIONS = [
   'create_project_status', 'update_project_status', 'delete_project_status',
   'manage_backlogs',
   'manage_construction_objects',
+  // #2449 file explorer (2026-09-24): see the tree, write in folders one may
+  // edit, change who may see a folder, shape the organisation-level tree.
+  'view_files', 'manage_files', 'share_files', 'manage_file_structure',
   'invite_calendar_departments', 'view_team_calendar',
   'view_warehouse',
   'manage_warehouse',
