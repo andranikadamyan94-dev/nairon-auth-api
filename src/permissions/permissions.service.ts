@@ -83,6 +83,8 @@ export const ALL_PERMISSIONS = [
   // warehouse but need to know.
   'receive_stock_alerts', 'receive_procurement_alerts', 'receive_reservation_alerts',
   'view_responsibilities', 'manage_responsibilities',
+  // Asset custody (2026-09-23): personal no-end-date issue of assets
+  'request_assets', 'approve_asset_requests', 'issue_assets', 'view_asset_custody',
   'finance_approval', 'director_approval', 'manage_recurring_transfers',
   
   'excuse_sprint_task',
