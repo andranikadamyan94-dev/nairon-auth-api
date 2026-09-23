@@ -111,7 +111,7 @@ export const ALL_PERMISSIONS = [
   'give_feedback', 'moderate_feedback', 'view_team_feedback', 'manage_feedback_forms',
   // Disciplinary notices
   'issue_disciplinary_notice', 'view_disciplinary_notices',
-  // AI assistant. Three switches rather than one: a role can be given the
+  // AI assistant. Separate capabilities: a role can be given the
   // assistant for reading without also being handed a way to change Nairon
   // data through it, or a microphone. None of them grants access to anything
   // on its own — the service that owns the data still authorizes every call
@@ -121,6 +121,9 @@ export const ALL_PERMISSIONS = [
   // use_ai_assistant. It is separate because a spoken minute is billed and a
   // typed one is not, so the organisation turns voice on per role.
   'use_ai_assistant', 'ai_write_actions', 'use_ai_voice',
+  // Explicit opt-in to manual AND scheduled task analysis and provisional ratings.
+  // This is not business-data access and is never granted automatically.
+  'ai_task_analysis',
   // Marketing app (2026-09-22 build plan, Phase 2). Catalogue only: no role
   // is granted anything here; the owner grants per organization as usual.
   'marketing_view', 'marketing_manage_campaigns', 'marketing_edit_content',
