@@ -79,6 +79,10 @@ export const ALL_PERMISSIONS = [
   // own organization: file one there / let it through to procurement or turn
   // it down there. manage_warehouse does not stand in for either.
   'create_purchase_requisition', 'approve_purchase_requisition',
+  // 2026-09-25 (owner's hotfix): a rejection at either stage is only final once
+  // confirmed in the requisition's organization; an order needs approval in its
+  // organization before finance hears of it.
+  'confirm_requisition_rejection', 'approve_purchase_order',
   'view_inventory_movements',
   'manage_warehouses', 'manage_stock_transfers',
   // Warehouse notification audiences. manage_warehouse holders receive all
