@@ -114,6 +114,8 @@ export const ALL_PERMISSIONS = [
   'view_org_requests',
   'manage_org_requests',
   'create_department_demand',
+  // #2545 (2026-09-25): the requests discipline report (rejected, overdue, deadline changes).
+  'view_requests_report',
   // Learning platform
   'view_learning', 'author_courses', 'assign_courses', 'manage_learning', 'view_team_learning',
   // Peer feedback
