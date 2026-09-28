@@ -53,6 +53,9 @@ export const ALL_PERMISSIONS = [
   // membership-scoped. Scoped to that one organization since 2026-09-11;
   // does NOT unlock private tasks.
   'view_all_projects',
+  // 2026-09-29 (#2596-98): see every backlog of a project, not only the
+  // backlogs of the units one is placed under. view_all_projects implies it.
+  'view_all_project_backlogs',
   // Edit the organizational tree (org restructure): units, re-parenting,
   // heads, members. Reading the tree needs no permission.
   'manage_org_structure',
