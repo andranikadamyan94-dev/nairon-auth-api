@@ -148,7 +148,9 @@ export const ALL_PERMISSIONS = [
   //   ai_long_goals          V3: create long-running goals; delegated goal tokens need it
   //   ai_relations_analysis  V4: the hypotheses section of relations analysis
   //   ai_workflow_author     V5: author workflows; delegated workflow tokens need it
-  'ai_memory', 'ai_memory_publish', 'ai_memory_manage', 'ai_long_goals', 'ai_relations_analysis', 'ai_workflow_author',
+  //   ai_workflow_publisher  V5: review and publish another author's workflow version (four eyes)
+  //   ai_workflow_view       V5: see the organisation's workflows and their run history
+  'ai_memory', 'ai_memory_publish', 'ai_memory_manage', 'ai_long_goals', 'ai_relations_analysis', 'ai_workflow_author', 'ai_workflow_publisher', 'ai_workflow_view',
   // Marketing app (2026-09-22 build plan, Phase 2). Catalogue only: no role
   // is granted anything here; the owner grants per organization as usual.
   'marketing_view', 'marketing_manage_campaigns', 'marketing_edit_content',
