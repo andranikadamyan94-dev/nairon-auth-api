@@ -14,10 +14,12 @@ import { AddressInfo } from 'net';
 
 import { AuthService } from '../../auth/auth.service';
 import { AuthGuard } from '../../auth/guards/auth.guard';
+import { ALL_PERMISSIONS } from '../../permissions/permissions.service';
 import { AuthPrismaService } from '../../prisma.service';
 import { armenianValidationPipe } from '../../shared/validation-messages';
 import {
   DELEGATED_TOKEN_TTL_SEC,
+  REQUIRED_PERMISSIONS,
   delegatedTokensEnabled,
   parseDelegatedTokenRequest,
 } from '../delegated-token.contract';
@@ -41,6 +43,9 @@ interface Assignment {
   isSuperAdmin?: boolean;
   grants: Grant[];
 }
+
+/** Everything a goal or a workflow owner needs, at the base (entity 0) of the role. */
+const AI_GRANTS: Grant[] = ['use_ai_assistant', 'ai_long_goals', 'ai_workflow_author'].map((name) => ({ entityId: 0, name }));
 
 const db = {
   users: new Map<number, { id: number; email: string; deactivatedAt: Date | null }>(),
@@ -146,13 +151,15 @@ beforeEach(() => {
   hr.entities.clear();
   hr.calls.length = 0;
 
-  // Person 18: active, AI assistant granted in organisation 4, member of 4 and 7.
+  // Person 18: active, AI assistant plus the goal and workflow switches
+  // granted in organisation 4, member of 4 and 7.
   db.users.set(18, { id: 18, email: 'owner@example.test', deactivatedAt: null });
-  db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'use_ai_assistant' }, { entityId: 0, name: 'view_all_projects' }] }]);
+  db.roles.set(18, [{ entityId: 4, grants: [...AI_GRANTS, { entityId: 0, name: 'view_all_projects' }] }]);
   hr.entities.set(18, [4, 7]);
 });
 
 const GOAL = { userId: 18, entityId: 4, goalId: 'goal-3f2a', runId: 'run-0001', scope: 'read' };
+const WORKFLOW = { userId: 18, entityId: 4, workflowId: 'wfv-77', scope: 'read' };
 
 async function mint(body: unknown, headers: Record<string, string> = { 'x-internal-secret': TEST_INTERNAL_SECRET }) {
   const res = await realFetch(`${base}/api/internal/delegated-token`, {
@@ -358,26 +365,103 @@ describe('refusals', () => {
   });
 
   it('refuses without use_ai_assistant in that organisation', async () => {
-    db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'view_all_projects' }] }]);
+    db.roles.set(18, [{ entityId: 4, grants: AI_GRANTS.filter((g) => g.name !== 'use_ai_assistant') }]);
     const r = await mint(GOAL);
     expect(r.status).toBe(403);
     expect(r.body).toMatchObject({ reason: 'missing_permission', missing: ['use_ai_assistant'] });
   });
 
   it('does not borrow a grant held only in another organisation', async () => {
-    db.roles.set(18, [{ entityId: 7, grants: [{ entityId: 0, name: 'use_ai_assistant' }] }]);
+    db.roles.set(18, [{ entityId: 7, grants: AI_GRANTS }]);
     expect((await mint(GOAL)).body.reason).toBe('missing_permission');
-    db.roles.set(18, [{ entityId: 0, grants: [{ entityId: 7, name: 'use_ai_assistant' }] }]);
+    db.roles.set(18, [{ entityId: 0, grants: AI_GRANTS.map((g) => ({ ...g, entityId: 7 })) }]);
     expect((await mint(GOAL)).body.reason).toBe('missing_permission');
   });
 
   it('accepts a wildcard assignment (entity 0) that grants it everywhere', async () => {
-    db.roles.set(18, [{ entityId: 0, grants: [{ entityId: 0, name: 'use_ai_assistant' }] }]);
+    db.roles.set(18, [{ entityId: 0, grants: AI_GRANTS }]);
     expect((await mint(GOAL)).status).toBe(200);
   });
 
   it('does not let super admin stand in for the AI grant', async () => {
     db.roles.set(18, [{ entityId: 0, isSuperAdmin: true, grants: [{ entityId: 0, name: 'view_all_projects' }] }]);
+    const goal = await mint(GOAL);
+    expect(goal.body.reason).toBe('missing_permission');
+    expect(goal.body.missing).toEqual(['use_ai_assistant', 'ai_long_goals']);
+    const workflow = await mint(WORKFLOW);
+    expect(workflow.body.reason).toBe('missing_permission');
+    expect(workflow.body.missing).toEqual(['use_ai_assistant', 'ai_workflow_author']);
+  });
+
+  it('does not let super admin stand in for ai_long_goals or ai_workflow_author either', async () => {
+    db.roles.set(18, [{ entityId: 0, isSuperAdmin: true, grants: [{ entityId: 0, name: 'use_ai_assistant' }] }]);
+    expect((await mint(GOAL)).body).toMatchObject({ reason: 'missing_permission', missing: ['ai_long_goals'] });
+    expect((await mint(WORKFLOW)).body).toMatchObject({ reason: 'missing_permission', missing: ['ai_workflow_author'] });
+  });
+});
+
+// ─── The dedicated switches: ai_long_goals (V3), ai_workflow_author (V5) ─────
+
+describe('the switch each actor needs on top of use_ai_assistant', () => {
+  it('is ai_long_goals for a goal and ai_workflow_author for a workflow, literally', () => {
+    expect(REQUIRED_PERMISSIONS).toEqual({
+      'ai-goal': ['use_ai_assistant', 'ai_long_goals'],
+      'ai-workflow': ['use_ai_assistant', 'ai_workflow_author'],
+    });
+  });
+
+  it('names only permissions that are in the catalogue the owner grants from', () => {
+    for (const name of Object.values(REQUIRED_PERMISSIONS).flat()) {
+      expect(ALL_PERMISSIONS).toContain(name);
+    }
+  });
+
+  it('refuses a goal without ai_long_goals, even with use_ai_assistant', async () => {
+    db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'use_ai_assistant' }, { entityId: 0, name: 'ai_workflow_author' }] }]);
+    const r = await mint(GOAL);
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: 'delegation_refused', reason: 'missing_permission', missing: ['ai_long_goals'] });
+    expect(r.body.access_token).toBeUndefined();
+    // Refused before membership is even asked.
+    expect(hr.calls).toHaveLength(0);
+  });
+
+  it('refuses a workflow without ai_workflow_author, even with use_ai_assistant', async () => {
+    db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'use_ai_assistant' }, { entityId: 0, name: 'ai_long_goals' }] }]);
+    const r = await mint(WORKFLOW);
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: 'delegation_refused', reason: 'missing_permission', missing: ['ai_workflow_author'] });
+    expect(r.body.access_token).toBeUndefined();
+  });
+
+  it('refuses either without use_ai_assistant, even with the dedicated switch', async () => {
+    db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'ai_long_goals' }, { entityId: 0, name: 'ai_workflow_author' }] }]);
+    expect((await mint(GOAL)).body).toMatchObject({ reason: 'missing_permission', missing: ['use_ai_assistant'] });
+    expect((await mint(WORKFLOW)).body).toMatchObject({ reason: 'missing_permission', missing: ['use_ai_assistant'] });
+  });
+
+  it('mints a goal token with use_ai_assistant + ai_long_goals alone', async () => {
+    db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'use_ai_assistant' }, { entityId: 0, name: 'ai_long_goals' }] }]);
+    expect((await mint(GOAL)).status).toBe(200);
+    expect((await mint(WORKFLOW)).body.missing).toEqual(['ai_workflow_author']);
+  });
+
+  it('mints a workflow token with use_ai_assistant + ai_workflow_author alone', async () => {
+    db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'use_ai_assistant' }, { entityId: 0, name: 'ai_workflow_author' }] }]);
+    expect((await mint(WORKFLOW)).status).toBe(200);
+    expect((await mint(GOAL)).body.missing).toEqual(['ai_long_goals']);
+  });
+
+  it('accepts the switch granted as an extra for that organisation only', async () => {
+    db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'use_ai_assistant' }, { entityId: 4, name: 'ai_long_goals' }] }]);
+    expect((await mint(GOAL)).status).toBe(200);
+    db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'use_ai_assistant' }, { entityId: 7, name: 'ai_long_goals' }] }]);
+    expect((await mint(GOAL)).body.missing).toEqual(['ai_long_goals']);
+  });
+
+  it('re-reads the switch on every mint: taking it away suspends the next run', async () => {
+    expect((await mint(GOAL)).status).toBe(200);
+    db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'use_ai_assistant' }] }]);
     expect((await mint(GOAL)).body.reason).toBe('missing_permission');
   });
 

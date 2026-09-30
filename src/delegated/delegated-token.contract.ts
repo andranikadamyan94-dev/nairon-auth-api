@@ -31,14 +31,14 @@ export type DelegatedActor = 'ai-goal' | 'ai-workflow';
  * Rights the owner must hold, literally, in the organisation the run acts in.
  *
  * Read as grants, never implied by super admin — the same rule ai-api applies
- * to its rollout switches. The dedicated switches the designs name
- * (`ai_long_goals` for V3, `ai_workflow_author` for V5) are not in the
- * permission catalogue yet; they belong here, next to `use_ai_assistant`, in
- * the change that adds them to ALL_PERMISSIONS.
+ * to its rollout switches. Each actor needs the assistant itself and the
+ * dedicated switch its design names: `ai_long_goals` for V3 goals,
+ * `ai_workflow_author` for V5 workflows. Losing either suspends the run at
+ * its next mint.
  */
 export const REQUIRED_PERMISSIONS: Record<DelegatedActor, readonly string[]> = {
-  'ai-goal': ['use_ai_assistant'],
-  'ai-workflow': ['use_ai_assistant'],
+  'ai-goal': ['use_ai_assistant', 'ai_long_goals'],
+  'ai-workflow': ['use_ai_assistant', 'ai_workflow_author'],
 };
 
 export interface DelegatedTokenRequest {

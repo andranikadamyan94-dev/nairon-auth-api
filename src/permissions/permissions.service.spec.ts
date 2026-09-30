@@ -1,4 +1,8 @@
-import { ALL_PERMISSIONS, PermissionsService } from './permissions.service';
+import { readFileSync, readdirSync } from 'fs';
+import { join } from 'path';
+
+import { RolesService } from '../roles/roles.service';
+import { ALL_PERMISSIONS, PermissionsService, RETIRED_PERMISSIONS } from './permissions.service';
 
 describe('Օրվա ամփոփման և առաջադրանքների վերլուծության միասնական իրավունք', () => {
   it('ունի միայն մեկ ai_task_analysis անուն՝ առանց ավտոմատ և ձեռքով տարբերակների', () => {
@@ -12,5 +16,82 @@ describe('Օրվա ամփոփման և առաջադրանքների վերլու
     await service.seedPermissions();
     expect(upsert).toHaveBeenCalledWith({ where: { name: 'ai_task_analysis' }, create: { name: 'ai_task_analysis' }, update: {} });
     expect(upsert).toHaveBeenCalledTimes(ALL_PERMISSIONS.length);
+  });
+});
+
+/*
+ * Nairon AI V2–V5 switches. Each is a literal grant the owner ticks per role;
+ * being in the catalogue must hand it to nobody, super-admin roles included.
+ */
+const AI_V2_V5 = ['ai_memory', 'ai_memory_publish', 'ai_long_goals', 'ai_relations_analysis', 'ai_workflow_author'];
+
+/** A Prisma stand-in that records every model call and answers each with `answer`. */
+function recordingPrisma(answer: (model: string, method: string, args: any) => any = () => ({})) {
+  const calls: { model: string; method: string; args: any }[] = [];
+  const prisma = new Proxy({} as any, {
+    get: (_t, model: string) =>
+      new Proxy({} as any, {
+        get: (_m, method: string) => async (args: any) => {
+          calls.push({ model, method, args });
+          return answer(model, method, args);
+        },
+      }),
+  });
+  return { prisma, calls };
+}
+
+describe('Nairon AI V2–V5 իրավունքները կատալոգում', () => {
+  it.each(AI_V2_V5)('%s կատալոգում է՝ ճիշտ մեկ անգամ', (name) => {
+    expect(ALL_PERMISSIONS.filter((p) => p === name)).toEqual([name]);
+  });
+
+  it('թաքցված (retired) չեն, ուրեմն դերերի էջում երևում են', async () => {
+    for (const name of AI_V2_V5) expect(RETIRED_PERMISSIONS).not.toContain(name);
+    const { prisma, calls } = recordingPrisma(() => []);
+    await new PermissionsService(prisma).getAllPermissions();
+    expect(calls).toEqual([
+      { model: 'permission', method: 'findMany', args: { where: { name: { notIn: RETIRED_PERMISSIONS } }, orderBy: { name: 'asc' } } },
+    ]);
+  });
+
+  it('seed-ը գրում է միայն Permission տողեր՝ ոչ մի դերի, super-admin-ի կամ աշխատակցի չի նշանակում', async () => {
+    const { prisma, calls } = recordingPrisma();
+    await new PermissionsService(prisma).seedPermissions();
+
+    // Only permission.upsert, once per catalogue name — no RolePermission, UserRole or Role call.
+    expect(calls.every((c) => c.model === 'permission' && c.method === 'upsert')).toBe(true);
+    expect(calls).toHaveLength(ALL_PERMISSIONS.length);
+
+    for (const name of AI_V2_V5) {
+      const call = calls.find((c) => c.args.where.name === name);
+      // Bare row: no nested `roles` create; an existing row is left exactly as it is.
+      expect(call?.args).toEqual({ where: { name }, create: { name }, update: {} });
+    }
+  });
+
+  it('seed-ը կրկնելիս նոր բան չի անում (idempotent upsert, update: {})', async () => {
+    const { prisma, calls } = recordingPrisma();
+    const service = new PermissionsService(prisma);
+    await service.seedPermissions();
+    await service.seedPermissions();
+    expect(calls).toHaveLength(2 * ALL_PERMISSIONS.length);
+    expect(calls.every((c) => JSON.stringify(c.args.update) === '{}')).toBe(true);
+  });
+
+  it('ոչ մի միգրացիա չի ավելացնում կամ նշանակում այս իրավունքները', () => {
+    const dir = join(__dirname, '..', '..', 'prisma', 'migrations');
+    const sql = readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => readFileSync(join(dir, d.name, 'migration.sql'), 'utf8'))
+      .join('\n');
+    for (const name of AI_V2_V5) expect(sql).not.toContain(name);
+  });
+
+  it('super-admin դերին API-ով նշանակել հնարավոր չէ, և ոչինչ չի գրվում', async () => {
+    const { prisma, calls } = recordingPrisma((model, method) =>
+      model === 'role' && method === 'findUnique' ? { isSuperAdmin: true } : {},
+    );
+    await expect(new RolesService(prisma).assignPermissionsToRole(1, AI_V2_V5)).rejects.toThrow();
+    expect(calls.map((c) => `${c.model}.${c.method}`)).toEqual(['role.findUnique']);
   });
 });
