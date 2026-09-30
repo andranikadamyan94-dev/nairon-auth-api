@@ -8,6 +8,7 @@ import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { PrismaModule } from './prisma.module';
 import { OAuthModule } from './oauth/oauth.module';
+import { DelegatedTokenModule } from './delegated/delegated-token.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { OAuthModule } from './oauth/oauth.module';
     RolesModule,
     PermissionsModule,
     OAuthModule,
+    DelegatedTokenModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
