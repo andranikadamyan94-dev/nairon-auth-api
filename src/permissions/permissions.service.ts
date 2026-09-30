@@ -144,10 +144,11 @@ export const ALL_PERMISSIONS = [
   // per role, pilot first. Every one also needs use_ai_assistant.
   //   ai_memory              V2: the assistant's memory, own (personal) notes
   //   ai_memory_publish      V2 M3: publish a note to the organisation's memory
+  //   ai_memory_manage       V2 M3: manage shared (project/organisation) notes of others; never personal notes
   //   ai_long_goals          V3: create long-running goals; delegated goal tokens need it
   //   ai_relations_analysis  V4: the hypotheses section of relations analysis
   //   ai_workflow_author     V5: author workflows; delegated workflow tokens need it
-  'ai_memory', 'ai_memory_publish', 'ai_long_goals', 'ai_relations_analysis', 'ai_workflow_author',
+  'ai_memory', 'ai_memory_publish', 'ai_memory_manage', 'ai_long_goals', 'ai_relations_analysis', 'ai_workflow_author',
   // Marketing app (2026-09-22 build plan, Phase 2). Catalogue only: no role
   // is granted anything here; the owner grants per organization as usual.
   'marketing_view', 'marketing_manage_campaigns', 'marketing_edit_content',

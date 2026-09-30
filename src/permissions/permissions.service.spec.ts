@@ -23,7 +23,7 @@ describe('Օրվա ամփոփման և առաջադրանքների վերլու
  * Nairon AI V2–V5 switches. Each is a literal grant the owner ticks per role;
  * being in the catalogue must hand it to nobody, super-admin roles included.
  */
-const AI_V2_V5 = ['ai_memory', 'ai_memory_publish', 'ai_long_goals', 'ai_relations_analysis', 'ai_workflow_author'];
+const AI_V2_V5 = ['ai_memory', 'ai_memory_publish', 'ai_memory_manage', 'ai_long_goals', 'ai_relations_analysis', 'ai_workflow_author'];
 
 /** A Prisma stand-in that records every model call and answers each with `answer`. */
 function recordingPrisma(answer: (model: string, method: string, args: any) => any = () => ({})) {
