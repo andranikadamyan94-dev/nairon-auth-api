@@ -1,4 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { M } from '../../constants/messages';
 
 /**
  * Service-to-service authentication for the routes a browser never reaches.
@@ -47,7 +48,7 @@ export class InternalGuard implements CanActivate {
 export function assertInternalSecret(incoming: unknown): void {
   const expected = process.env.INTERNAL_SECRET;
   if (typeof expected !== 'string' || expected.trim() === '') {
-    throw new UnauthorizedException('Internal authentication is not configured on this service');
+    throw new UnauthorizedException(M.internal.notConfigured);
   }
   if (typeof incoming !== 'string' || incoming === '' || incoming !== expected) {
     throw new UnauthorizedException();
