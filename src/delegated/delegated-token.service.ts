@@ -11,8 +11,8 @@ import {
   DelegatedActClaim,
   DelegatedTokenClaims,
   DelegatedTokenRequest,
-  REQUIRED_PERMISSIONS,
   actClaimFor,
+  requiredPermissions,
 } from './delegated-token.contract';
 import {
   DELEGATED_WRITE_TOKEN_TTL_SEC,
@@ -62,6 +62,8 @@ function refuse(reason: DelegationRefusal, extra: Record<string, unknown> = {}):
  * Three questions, all asked fresh, and a refusal on any of them:
  *   1. Is the account still there and active?
  *   2. Does the person still hold the AI rights, literally, in that organisation?
+ *      (Which rights depends on the actor and, for a workflow, the role:
+ *      REQUIRED_PERMISSIONS in the contract.)
  *   3. Does Nairon still let the person into that organisation at all?
  *
  * The third is asked of hr-api — the endpoint the entity switcher uses — and
@@ -82,7 +84,11 @@ export class DelegatedTokenService {
 
   async mint(req: DelegatedTokenRequest): Promise<DelegatedTokenResponse> {
     const act = actClaimFor(req);
-    const label = `user=${req.userId} entity=${req.entityId} act=${act.sub}`;
+    // Never the token; for a workflow, in which capacity it was asked.
+    const label =
+      act.sub === 'ai-workflow'
+        ? `user=${req.userId} entity=${req.entityId} act=ai-workflow:${act.role} workflow=${act.workflowId} version=${act.workflowVersionId}`
+        : `user=${req.userId} entity=${req.entityId} act=ai-goal`;
 
     const user = await this.prisma.user.findUnique({
       where: { id: req.userId },
@@ -92,7 +98,7 @@ export class DelegatedTokenService {
     if (user.deactivatedAt) return this.refused(label, 'user_inactive');
 
     const held = await this.permissionNames(user.id, req.entityId);
-    const missing = REQUIRED_PERMISSIONS[req.actor].filter((p) => !held.has(p));
+    const missing = requiredPermissions(req).filter((p) => !held.has(p));
     if (missing.length) return this.refused(label, 'missing_permission', { missing });
 
     const organisations = await this.organisationsOf(user.id, user.email);

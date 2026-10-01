@@ -21,7 +21,9 @@ import {
   DELEGATED_TOKEN_TTL_SEC,
   REQUIRED_PERMISSIONS,
   delegatedTokensEnabled,
+  delegatedWorkflowTokensEnabled,
   parseDelegatedTokenRequest,
+  requiredPermissions,
 } from '../delegated-token.contract';
 import { DelegatedTokenController, DelegatedTokensEnabledGuard } from '../delegated-token.controller';
 import { DelegatedTokenService } from '../delegated-token.service';
@@ -144,6 +146,7 @@ beforeEach(() => {
   process.env.JWT_SECRET = TEST_JWT_SECRET;
   process.env.INTERNAL_SECRET = TEST_INTERNAL_SECRET;
   process.env.AUTH_DELEGATED_TOKENS_ENABLED = 'true';
+  process.env.AUTH_DELEGATED_WORKFLOW_TOKENS_ENABLED = 'true';
   process.env.HR_API_URL = 'http://hr.test';
 
   db.users.clear();
@@ -159,7 +162,8 @@ beforeEach(() => {
 });
 
 const GOAL = { userId: 18, entityId: 4, goalId: 'goal-3f2a', runId: 'run-0001', scope: 'read' };
-const WORKFLOW = { userId: 18, entityId: 4, workflowId: 'wfv-77', scope: 'read' };
+const WORKFLOW = { userId: 18, entityId: 4, workflowId: 'wf-77', workflowVersionId: 'wfv-77.3', scope: 'read' };
+const APPROVER = { ...WORKFLOW, role: 'approver' };
 
 async function mint(body: unknown, headers: Record<string, string> = { 'x-internal-secret': TEST_INTERNAL_SECRET }) {
   const res = await realFetch(`${base}/api/internal/delegated-token`, {
@@ -258,7 +262,43 @@ describe('request validation', () => {
 
   it('derives the actor from the id it is given', () => {
     expect(parseDelegatedTokenRequest({ userId: 1, entityId: 2, goalId: 'g', scope: 'read' }).actor).toBe('ai-goal');
-    expect(parseDelegatedTokenRequest({ userId: 1, entityId: 2, workflowId: 'w', scope: 'read' }).actor).toBe('ai-workflow');
+    expect(parseDelegatedTokenRequest({ userId: 1, entityId: 2, workflowId: 'w', workflowVersionId: 'v', scope: 'read' }).actor).toBe('ai-workflow');
+  });
+
+  it('defaults a workflow request to the author role, and keeps goals free of workflow fields', () => {
+    const wf = parseDelegatedTokenRequest({ userId: 1, entityId: 2, workflowId: 'w', workflowVersionId: 'v', scope: 'read' });
+    expect(wf).toMatchObject({ actor: 'ai-workflow', subjectId: 'w', workflowVersionId: 'v', role: 'author' });
+    const ap = parseDelegatedTokenRequest({ userId: 1, entityId: 2, workflowId: 'w', workflowVersionId: 'v', role: 'approver', scope: 'read' });
+    expect(ap.role).toBe('approver');
+    const goal = parseDelegatedTokenRequest({ userId: 1, entityId: 2, goalId: 'g', scope: 'read' });
+    expect(goal).not.toHaveProperty('role');
+    expect(goal).not.toHaveProperty('workflowVersionId');
+  });
+});
+
+describe('workflow request validation', () => {
+  it.each([
+    ['a workflow without workflowVersionId', { userId: 18, entityId: 4, workflowId: 'wf-77', scope: 'read' }],
+    ['a null workflowVersionId', { ...WORKFLOW, workflowVersionId: null }],
+    ['a malformed workflowVersionId', { ...WORKFLOW, workflowVersionId: '../v1' }],
+    ['a numeric workflowVersionId', { ...WORKFLOW, workflowVersionId: 3 }],
+    ['an unknown role', { ...WORKFLOW, role: 'admin' }],
+    ['an upper-case role', { ...WORKFLOW, role: 'Author' }],
+    ['an empty role', { ...WORKFLOW, role: '' }],
+    ['a null role', { ...WORKFLOW, role: null }],
+    ['a role that is not a string', { ...WORKFLOW, role: ['author'] }],
+    ['workflowVersionId on a goal', { ...GOAL, workflowVersionId: 'wfv-77.3' }],
+    ['role on a goal', { ...GOAL, role: 'author' }],
+    ['role approver on a goal', { ...GOAL, role: 'approver' }],
+    ['a null role on a goal', { ...GOAL, role: null }],
+    ['both a goal and a workflow, fully formed', { ...WORKFLOW, goalId: 'goal-3f2a' }],
+    ['an unexpected field on a workflow', { ...WORKFLOW, approverId: 9 }],
+    ['a write scope on a workflow', { ...WORKFLOW, scope: 'write' }],
+  ])('answers 400 to %s', async (_label, body) => {
+    const r = await mint(body);
+    expect(r.status).toBe(400);
+    expect(r.body?.access_token).toBeUndefined();
+    expect(hr.calls).toHaveLength(0);
   });
 });
 
@@ -293,11 +333,11 @@ describe('a successful mint', () => {
     expect(DELEGATED_TOKEN_TTL_SEC).toBe(300);
   });
 
-  it('returns act.sub=ai-workflow with the workflow id for a workflow run', async () => {
-    const r = await mint({ userId: 18, entityId: 4, workflowId: 'wfv-77', scope: 'read' });
+  it('returns act.sub=ai-workflow with the workflow, its version and the author role for a workflow run', async () => {
+    const r = await mint(WORKFLOW);
     expect(r.status).toBe(200);
     const claims: any = jwtCheck.verify(r.body.access_token);
-    expect(claims.act).toEqual({ sub: 'ai-workflow', workflowId: 'wfv-77' });
+    expect(claims.act).toEqual({ sub: 'ai-workflow', workflowId: 'wf-77', workflowVersionId: 'wfv-77.3', role: 'author' });
     expect(claims.act.goalId).toBeUndefined();
   });
 
@@ -403,11 +443,17 @@ describe('refusals', () => {
 // ─── The dedicated switches: ai_long_goals (V3), ai_workflow_author (V5) ─────
 
 describe('the switch each actor needs on top of use_ai_assistant', () => {
-  it('is ai_long_goals for a goal and ai_workflow_author for a workflow, literally', () => {
+  it('is ai_long_goals for a goal, ai_workflow_author for a workflow author and nothing more for an approver, literally', () => {
     expect(REQUIRED_PERMISSIONS).toEqual({
       'ai-goal': ['use_ai_assistant', 'ai_long_goals'],
-      'ai-workflow': ['use_ai_assistant', 'ai_workflow_author'],
+      'ai-workflow:author': ['use_ai_assistant', 'ai_workflow_author'],
+      'ai-workflow:approver': ['use_ai_assistant'],
     });
+    expect(requiredPermissions({ actor: 'ai-goal' })).toEqual(['use_ai_assistant', 'ai_long_goals']);
+    expect(requiredPermissions({ actor: 'ai-workflow', role: 'author' })).toEqual(['use_ai_assistant', 'ai_workflow_author']);
+    expect(requiredPermissions({ actor: 'ai-workflow', role: 'approver' })).toEqual(['use_ai_assistant']);
+    // A workflow request without a role is checked as the stricter author, never as an approver.
+    expect(requiredPermissions({ actor: 'ai-workflow' })).toEqual(['use_ai_assistant', 'ai_workflow_author']);
   });
 
   it('names only permissions that are in the catalogue the owner grants from', () => {
@@ -492,6 +538,196 @@ describe('the switch each actor needs on top of use_ai_assistant', () => {
     delete process.env.HR_API_URL;
     const r = await mint(GOAL);
     expect(r.status).toBe(503);
+    expect(r.body.access_token).toBeUndefined();
+  });
+});
+
+// ─── The workflow form: its own switch ──────────────────────────────────────
+
+describe('AUTH_DELEGATED_WORKFLOW_TOKENS_ENABLED', () => {
+  it.each([undefined, '', 'false', '0', '1', 'TRUE', 'yes'])(
+    'answers a workflow request 404 when the sub-flag is %p (read flag on), and still mints for a goal',
+    async (value) => {
+      if (value === undefined) delete process.env.AUTH_DELEGATED_WORKFLOW_TOKENS_ENABLED;
+      else process.env.AUTH_DELEGATED_WORKFLOW_TOKENS_ENABLED = value;
+      for (const body of [WORKFLOW, APPROVER]) {
+        const r = await mint(body);
+        expect(r.status).toBe(404);
+        expect(r.body?.access_token).toBeUndefined();
+      }
+      expect(hr.calls).toHaveLength(0);
+      const goal = await mint(GOAL);
+      expect(goal.status).toBe(200);
+      expect(goal.body.act).toEqual({ sub: 'ai-goal', goalId: 'goal-3f2a', runId: 'run-0001' });
+    },
+  );
+
+  it('with the sub-flag off, a workflow request looks exactly like a route that does not exist', async () => {
+    delete process.env.AUTH_DELEGATED_WORKFLOW_TOKENS_ENABLED;
+    const wfOff = await realFetch(`${base}/api/internal/delegated-token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-internal-secret': TEST_INTERNAL_SECRET },
+      body: JSON.stringify(WORKFLOW),
+    });
+    const wfOffBody = await wfOff.json();
+
+    // The 404 the read flag gives when the whole route is off…
+    delete process.env.AUTH_DELEGATED_TOKENS_ENABLED;
+    const routeOff = await realFetch(`${base}/api/internal/delegated-token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(WORKFLOW),
+    });
+    const routeOffBody = await routeOff.json();
+    // …and the one Nest gives a route that does not exist.
+    const unknown = await realFetch(`${base}/api/internal/no-such-route`, { method: 'POST' });
+    const unknownBody = await unknown.json();
+
+    expect(wfOff.status).toBe(404);
+    expect(wfOff.status).toBe(routeOff.status);
+    expect(wfOff.status).toBe(unknown.status);
+    expect(wfOffBody).toEqual(routeOffBody);
+    expect(wfOffBody).toEqual({ ...unknownBody, message: 'Cannot POST /api/internal/delegated-token' });
+    expect(wfOff.headers.get('cache-control')).toBe(unknown.headers.get('cache-control'));
+    expect(wfOff.headers.get('content-type')).toBe(unknown.headers.get('content-type'));
+  });
+
+  it('still checks the secret first: a workflow request without it is 401, not 404', async () => {
+    delete process.env.AUTH_DELEGATED_WORKFLOW_TOKENS_ENABLED;
+    expect((await mint(WORKFLOW, {})).status).toBe(401);
+    expect((await mint(WORKFLOW, { 'x-internal-secret': 'wrong' })).status).toBe(401);
+  });
+
+  it('decides after the body parses: a malformed workflow body is still a 400', async () => {
+    delete process.env.AUTH_DELEGATED_WORKFLOW_TOKENS_ENABLED;
+    expect((await mint({ ...WORKFLOW, workflowVersionId: undefined })).status).toBe(400);
+    expect((await mint({ ...WORKFLOW, role: 'admin' })).status).toBe(400);
+  });
+
+  it('does not switch the route on by itself', async () => {
+    delete process.env.AUTH_DELEGATED_TOKENS_ENABLED;
+    process.env.AUTH_DELEGATED_WORKFLOW_TOKENS_ENABLED = 'true';
+    expect((await mint(WORKFLOW)).status).toBe(404);
+    expect((await mint(GOAL)).status).toBe(404);
+  });
+
+  it('is the flag rule, literally: both flags exactly "true"', () => {
+    const on = { AUTH_DELEGATED_TOKENS_ENABLED: 'true', AUTH_DELEGATED_WORKFLOW_TOKENS_ENABLED: 'true' } as any;
+    expect(delegatedWorkflowTokensEnabled(on)).toBe(true);
+    expect(delegatedWorkflowTokensEnabled({} as any)).toBe(false);
+    expect(delegatedWorkflowTokensEnabled({ AUTH_DELEGATED_TOKENS_ENABLED: 'true' } as any)).toBe(false);
+    expect(delegatedWorkflowTokensEnabled({ AUTH_DELEGATED_WORKFLOW_TOKENS_ENABLED: 'true' } as any)).toBe(false);
+    for (const v of ['True', 'TRUE', '1', 'yes', ' true', '']) {
+      expect(delegatedWorkflowTokensEnabled({ ...on, AUTH_DELEGATED_WORKFLOW_TOKENS_ENABLED: v })).toBe(false);
+      expect(delegatedWorkflowTokensEnabled({ ...on, AUTH_DELEGATED_TOKENS_ENABLED: v })).toBe(false);
+    }
+  });
+});
+
+// ─── Workflow author ────────────────────────────────────────────────────────
+
+describe('a workflow token for the author', () => {
+  it('is a five-minute read token whose act names the workflow, its version, the role and the run', async () => {
+    const r = await mint({ ...WORKFLOW, role: 'author', runId: 'wfrun-9' });
+    expect(r.status).toBe(200);
+    expect(r.headers.get('cache-control')).toBe('no-store');
+    const act = { sub: 'ai-workflow', workflowId: 'wf-77', workflowVersionId: 'wfv-77.3', role: 'author', runId: 'wfrun-9' };
+    expect(r.body).toMatchObject({ token_type: 'Bearer', expires_in: 300, scope: 'read', entity_id: 4 });
+    expect(r.body.act).toEqual(act);
+
+    const claims: any = jwtCheck.verify(r.body.access_token);
+    expect(claims).toMatchObject({ id: 18, email: 'owner@example.test', sub: '18', entityId: 4, scope: 'read', src: 'ai-delegated' });
+    expect(claims.act).toEqual(act);
+    expect(claims.exp - claims.iat).toBe(300);
+    expect(() => new JwtService({ secret: 'another-key' }).verify(r.body.access_token)).toThrow();
+  });
+
+  it('is refused 403 missing_permission without ai_workflow_author, and minted with it', async () => {
+    db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'use_ai_assistant' }, { entityId: 0, name: 'ai_long_goals' }] }]);
+    const refused = await mint(WORKFLOW);
+    expect(refused.status).toBe(403);
+    expect(refused.body).toMatchObject({ error: 'delegation_refused', reason: 'missing_permission', missing: ['ai_workflow_author'] });
+    expect(refused.body.access_token).toBeUndefined();
+    expect(hr.calls).toHaveLength(0);
+
+    db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'use_ai_assistant' }, { entityId: 0, name: 'ai_workflow_author' }] }]);
+    const minted = await mint(WORKFLOW);
+    expect(minted.status).toBe(200);
+    expect(minted.body.act.role).toBe('author');
+  });
+
+  it('does not let super admin stand in for ai_workflow_author', async () => {
+    db.roles.set(18, [{ entityId: 0, isSuperAdmin: true, grants: [{ entityId: 0, name: 'use_ai_assistant' }] }]);
+    expect((await mint({ ...WORKFLOW, role: 'author' })).body).toMatchObject({
+      error: 'delegation_refused',
+      reason: 'missing_permission',
+      missing: ['ai_workflow_author'],
+    });
+  });
+
+  it('re-reads the switch on every mint: losing ai_workflow_author refuses the next mint', async () => {
+    expect((await mint(WORKFLOW)).status).toBe(200);
+    db.roles.set(18, [{ entityId: 4, grants: [{ entityId: 0, name: 'use_ai_assistant' }, { entityId: 0, name: 'ai_long_goals' }] }]);
+    const next = await mint(WORKFLOW);
+    expect(next.status).toBe(403);
+    expect(next.body).toMatchObject({ reason: 'missing_permission', missing: ['ai_workflow_author'] });
+  });
+});
+
+// ─── Workflow approver ──────────────────────────────────────────────────────
+
+describe('a workflow token for an approver', () => {
+  beforeEach(() => {
+    // Person 25: an approver with the assistant and nothing else AI-related.
+    db.users.set(25, { id: 25, email: 'approver@example.test', deactivatedAt: null });
+    db.roles.set(25, [{ entityId: 4, grants: [{ entityId: 0, name: 'use_ai_assistant' }] }]);
+    hr.entities.set(25, [4]);
+  });
+
+  const AS_APPROVER = { ...APPROVER, userId: 25, runId: 'wfrun-9' };
+
+  it('mints with use_ai_assistant alone, and says so in act', async () => {
+    const r = await mint(AS_APPROVER);
+    expect(r.status).toBe(200);
+    const act = { sub: 'ai-workflow', workflowId: 'wf-77', workflowVersionId: 'wfv-77.3', role: 'approver', runId: 'wfrun-9' };
+    expect(r.body.act).toEqual(act);
+    const claims: any = jwtCheck.verify(r.body.access_token);
+    expect(claims).toMatchObject({ id: 25, sub: '25', entityId: 4, scope: 'read', src: 'ai-delegated' });
+    expect(claims.act).toEqual(act);
+    expect(claims.exp - claims.iat).toBe(300);
+  });
+
+  it('gives the same person no author token', async () => {
+    const r = await mint({ ...AS_APPROVER, role: 'author' });
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ reason: 'missing_permission', missing: ['ai_workflow_author'] });
+  });
+
+  it('refuses 403 without use_ai_assistant, whatever else the person holds', async () => {
+    db.roles.set(25, [{ entityId: 4, grants: ['ai_workflow_author', 'ai_long_goals', 'ai_write_actions'].map((name) => ({ entityId: 0, name })) }]);
+    const r = await mint(AS_APPROVER);
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: 'delegation_refused', reason: 'missing_permission', missing: ['use_ai_assistant'] });
+    expect(r.body.access_token).toBeUndefined();
+  });
+
+  it('does not let super admin stand in for use_ai_assistant', async () => {
+    db.roles.set(25, [{ entityId: 0, isSuperAdmin: true, grants: [{ entityId: 0, name: 'view_all_projects' }] }]);
+    expect((await mint(AS_APPROVER)).body).toMatchObject({ reason: 'missing_permission', missing: ['use_ai_assistant'] });
+  });
+
+  it('refuses an inactive approver with 403 user_inactive', async () => {
+    db.users.set(25, { id: 25, email: 'approver@example.test', deactivatedAt: new Date('2026-09-30T00:00:00Z') });
+    const r = await mint(AS_APPROVER);
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: 'delegation_refused', reason: 'user_inactive' });
+  });
+
+  it('refuses an approver who is not a member of the organisation with 403 no_organisation_access', async () => {
+    hr.entities.set(25, [7]);
+    const r = await mint(AS_APPROVER);
+    expect(r.status).toBe(403);
+    expect(r.body).toMatchObject({ error: 'delegation_refused', reason: 'no_organisation_access' });
     expect(r.body.access_token).toBeUndefined();
   });
 });
