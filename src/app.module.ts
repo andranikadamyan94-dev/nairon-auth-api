@@ -9,6 +9,7 @@ import { PermissionsModule } from './permissions/permissions.module';
 import { PrismaModule } from './prisma.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { DelegatedTokenModule } from './delegated/delegated-token.module';
+import { HandoffModule } from './handoff/handoff.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { DelegatedTokenModule } from './delegated/delegated-token.module';
     PermissionsModule,
     OAuthModule,
     DelegatedTokenModule,
+    HandoffModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

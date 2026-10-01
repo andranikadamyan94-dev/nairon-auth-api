@@ -187,3 +187,24 @@ model OAuthRefreshToken {
   @@index([grantId])
   @@index([expiresAt])
 }
+
+/// A one-time cross-app sign-in code (2026-10-01, SSO handoff hardening).
+///
+/// When a person moves from one Nairon app to another, the source app asks for
+/// one of these and puts it in the destination URL's fragment instead of the
+/// session itself. The destination trades it, once, for its own session. It
+/// lives under a minute, is bound to the one origin it was issued for, and
+/// only its SHA-256 is stored — a copy of this table is not a set of codes.
+/// Unused unless AUTH_HANDOFF_CODES_ENABLED=true.
+model AuthHandoffCode {
+  codeHash     String    @id
+  userId       Int
+  /// The exact origin (scheme://host[:port]) allowed to exchange it.
+  targetOrigin String
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@index([userId])
+}

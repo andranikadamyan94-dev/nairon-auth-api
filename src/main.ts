@@ -7,6 +7,7 @@ import * as cookieParser from 'cookie-parser';
 import { PrismaExceptionFilter } from './shared/filters/prisma-exception.filter';
 import { armenianValidationPipe } from './shared/validation-messages';
 import { assertInternalAuthConfigured } from './auth/guards/internal.guard';
+import { browserOrigins } from './shared/browser-origins';
 
 async function bootstrap() {
   // A signing key has no safe default; refuse to start rather than fall back
@@ -30,25 +31,7 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3004',
-      'http://localhost:4001',
-      'http://localhost:4002',
-      'http://localhost:4003',
-      'http://localhost:4004',
-      'https://gateway.nairon.am',
-      'https://nairon.am',
-      'https://www.nairon.am',
-      'https://crm.nairon.am',
-      'https://finance.nairon.am',
-      'https://warehouse.nairon.am',
-      'https://staging.nairon.am',
-      'https://staging-crm.nairon.am',
-      'https://staging-finance.nairon.am',
-      'https://staging-warehouse.nairon.am',
-      ...(process.env.FRONTEND_URL?.split(',').map((u) => u.trim()).filter(Boolean) ?? []),
-    ].filter(Boolean),
+    origin: browserOrigins(),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     // Every authenticated request from any of the client apps carries
