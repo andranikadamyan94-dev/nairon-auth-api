@@ -139,8 +139,9 @@ beforeEach(() => {
 
 const RESERVE = {
   userId: 18, entityId: 4, goalId: 'goal-3f2a', runId: 'run-0001', approvalId: 'appr-9c1e', tool: 'warehouse.reservations.create', scope: 'write',
+  target: { taskId: 2462, itemId: 31, quantity: 2 } as Record<string, number>,
 };
-const MESSAGE = { ...RESERVE, tool: 'chat.messages.send', approvalId: 'appr-77aa' };
+const MESSAGE = { ...RESERVE, tool: 'chat.messages.send', approvalId: 'appr-77aa', target: { chatId: 77 } as Record<string, number> };
 
 async function call(path: string, body: unknown, headers: Record<string, string>) {
   const res = await realFetch(`${base}/api/internal/${path}`, {
@@ -161,8 +162,15 @@ function clientAccepts(body: any, req: typeof RESERVE): boolean {
   return (
     typeof token === 'string' && token.length > 20 && !/\s/.test(token) &&
     body?.scope === scope && Number(body?.entity_id) === req.entityId &&
-    body?.act?.sub === 'ai-goal' && body?.act?.goalId === req.goalId && body?.act?.approvalId === req.approvalId
+    body?.act?.sub === 'ai-goal' && body?.act?.goalId === req.goalId && body?.act?.approvalId === req.approvalId &&
+    sameTarget(body?.target, req.target)
   );
+}
+function sameTarget(a: any, b: any): boolean {
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  const ka = Object.keys(a).sort();
+  const kb = Object.keys(b).sort();
+  return ka.length === kb.length && ka.every((k, i) => k === kb[i] && a[k] === b[k] && typeof a[k] === 'number');
 }
 
 // ─── Flag ───────────────────────────────────────────────────────────────────
@@ -272,6 +280,16 @@ describe('request validation', () => {
     ['a delete', { ...RESERVE, tool: 'crm.tasks.delete' }],
     ['a tool outside the two', { ...RESERVE, tool: 'crm.tasks.create' }],
     ['a tool name with a colon', { ...RESERVE, tool: 'chat.messages.send:x' }],
+    ['no target', (({ target: _t, ...rest }) => rest)(RESERVE)],
+    ['a target that is not an object', { ...RESERVE, target: 2462 }],
+    ['a reservation target without its item', { ...RESERVE, target: { taskId: 2462, quantity: 2 } }],
+    ['a reservation target with a chat id', { ...RESERVE, target: { taskId: 2462, itemId: 31, quantity: 2, chatId: 77 } }],
+    ['a reservation target with a second item', { ...RESERVE, target: { taskId: 2462, itemId: 31, quantity: 2, itemId2: 32 } }],
+    ['a target id as a string', { ...RESERVE, target: { taskId: '2462', itemId: 31, quantity: 2 } }],
+    ['a zero quantity', { ...RESERVE, target: { taskId: 2462, itemId: 31, quantity: 0 } }],
+    ['a chat target for a reservation', { ...RESERVE, target: { chatId: 77 } }],
+    ['a reservation target for a chat', { ...MESSAGE, target: { taskId: 2462, itemId: 31, quantity: 2 } }],
+    ['a chat target with an extra field', { ...MESSAGE, target: { chatId: 77, userId: 19 } }],
   ])('answers 400 to %s — never delegation_refused', async (_label, body) => {
     const r = await mint(body);
     expect(r.status).toBe(400);
@@ -282,6 +300,13 @@ describe('request validation', () => {
   it('names exactly the two V3.4 whitelist tools', () => {
     expect(Object.keys(WRITE_TOOLS).sort()).toEqual(['chat.messages.send', 'warehouse.reservations.create']);
     expect(parseDelegatedWriteTokenRequest(RESERVE)).toEqual(RESERVE);
+  });
+
+  it('signs a project into a reservation target only when the approval froze one', async () => {
+    const r = await mint({ ...RESERVE, target: { projectId: 9, taskId: 2462, itemId: 31, quantity: 2 } });
+    expect(r.status).toBe(200);
+    expect(r.body.target).toEqual({ itemId: 31, projectId: 9, quantity: 2, taskId: 2462 });
+    expect((jwtCheck.verify(r.body.access_token) as any).target).toEqual({ itemId: 31, projectId: 9, quantity: 2, taskId: 2462 });
   });
 });
 
@@ -297,9 +322,11 @@ describe('a successful mint', () => {
       expires_in: DELEGATED_WRITE_TOKEN_TTL_SEC,
       scope: 'goal:write:warehouse.reservations.create:appr-9c1e',
       entity_id: 4,
+      target: { taskId: 2462, itemId: 31, quantity: 2 },
       act: { sub: 'ai-goal', goalId: 'goal-3f2a', runId: 'run-0001', approvalId: 'appr-9c1e' },
     });
     expect(clientAccepts(r.body, RESERVE)).toBe(true);
+    expect(clientAccepts(r.body, { ...RESERVE, target: { taskId: 2462, itemId: 31, quantity: 3 } })).toBe(false);
     // …and not for the other tool, approval, goal or organisation.
     expect(clientAccepts(r.body, MESSAGE as any)).toBe(false);
     expect(clientAccepts(r.body, { ...RESERVE, approvalId: 'appr-other' })).toBe(false);
@@ -311,6 +338,7 @@ describe('a successful mint', () => {
       id: 18, email: 'owner@example.test', sub: '18', entityId: 4,
       scope: 'goal:write:warehouse.reservations.create:appr-9c1e',
       act: { sub: 'ai-goal', goalId: 'goal-3f2a', runId: 'run-0001', approvalId: 'appr-9c1e' },
+      target: { taskId: 2462, itemId: 31, quantity: 2 },
       src: 'ai-delegated',
     });
     expect(typeof claims.jti).toBe('string');
@@ -323,6 +351,8 @@ describe('a successful mint', () => {
     const r = await mint(MESSAGE);
     expect(r.status).toBe(200);
     expect(r.body.scope).toBe('goal:write:chat.messages.send:appr-77aa');
+    expect(r.body.target).toEqual({ chatId: 77 });
+    expect((jwtCheck.verify(r.body.access_token) as any).target).toEqual({ chatId: 77 });
     expect(clientAccepts(r.body, MESSAGE)).toBe(true);
   });
 

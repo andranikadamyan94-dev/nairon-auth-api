@@ -19,6 +19,7 @@ import {
   DelegatedWriteActClaim,
   DelegatedWriteTokenClaims,
   DelegatedWriteTokenRequest,
+  WriteTarget,
   WRITE_REQUIRED_AI_PERMISSIONS,
   WRITE_TOOLS,
   writeScopeFor,
@@ -38,6 +39,7 @@ export interface DelegatedWriteTokenResponse {
   expires_in: number;
   scope: string;
   entity_id: number;
+  target: WriteTarget;
   act: DelegatedWriteActClaim;
 }
 
@@ -138,7 +140,7 @@ export class DelegatedTokenService {
   async mintWrite(req: DelegatedWriteTokenRequest): Promise<DelegatedWriteTokenResponse> {
     const scope = writeScopeFor(req.tool, req.approvalId);
     const act: DelegatedWriteActClaim = { sub: 'ai-goal', goalId: req.goalId, runId: req.runId, approvalId: req.approvalId };
-    const label = `user=${req.userId} entity=${req.entityId} act=ai-goal:write tool=${req.tool} approval=${req.approvalId}`;
+    const label = `user=${req.userId} entity=${req.entityId} act=ai-goal:write tool=${req.tool} approval=${req.approvalId} target=${JSON.stringify(req.target)}`;
 
     const user = await this.prisma.user.findUnique({
       where: { id: req.userId },
@@ -167,6 +169,7 @@ export class DelegatedTokenService {
       entityId: req.entityId,
       scope,
       act,
+      target: { ...req.target },
       src: DELEGATED_TOKEN_SRC,
     };
     const jti = randomUUID();
@@ -184,6 +187,7 @@ export class DelegatedTokenService {
       expires_in: DELEGATED_WRITE_TOKEN_TTL_SEC,
       scope,
       entity_id: req.entityId,
+      target: { ...req.target },
       act,
     };
   }

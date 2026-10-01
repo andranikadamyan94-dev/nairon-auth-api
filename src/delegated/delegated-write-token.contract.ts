@@ -14,16 +14,21 @@ import { safeEquals } from '../oauth/oauth.crypto';
  *
  *   POST /api/internal/delegated-write-token
  *   x-goal-write-secret: AI_GOALS_WRITE_TOKEN_SECRET     (never INTERNAL_SECRET)
- *   { userId, entityId, goalId, runId, approvalId, tool, scope: "write" }
+ *   { userId, entityId, goalId, runId, approvalId, tool, scope: "write", target }
  *
  *   200 { access_token, token_type: "Bearer", expires_in ≤ 300,
- *         scope: "goal:write:<tool>:<approvalId>", entity_id,
+ *         scope: "goal:write:<tool>:<approvalId>", entity_id, target,
  *         act: { sub: "ai-goal", goalId, runId, approvalId } }
  *   403 { error: "delegation_refused", reason }   the owner lost a right
  *
+ * `target` is the one record the approval froze, signed into the token:
+ *   chat.messages.send             { chatId }
+ *   warehouse.reservations.create  { taskId, itemId, quantity[, projectId] }
+ *
  * The gateway and the owning domain accept such a token on exactly that tool's
- * own routes (preflight and mutation), only with X-Entity-ID = entity_id, and
- * re-check the organisation and the rights themselves.
+ * own routes (preflight and mutation), only on that target, only with
+ * X-Entity-ID = entity_id, and re-check the organisation and the rights
+ * themselves.
  *
  * Off unless AUTH_DELEGATED_WRITE_TOKENS_ENABLED is exactly "true": the route
  * then answers 404 as if it did not exist. It does not depend on the read
@@ -57,13 +62,27 @@ export const WRITE_REQUIRED_AI_PERMISSIONS = [
  * and decides per record — a chat message is allowed to a chat's members, and
  * crm-api checks membership on the call.
  */
-export const WRITE_TOOLS: Readonly<Record<string, { anyOf: readonly string[] }>> = Object.freeze({
+export interface WriteToolRule {
+  anyOf: readonly string[];
+  /** The target's fields: every `required` one, any `optional` one, nothing else — positive integers. */
+  target: { required: readonly string[]; optional: readonly string[] };
+}
+
+export const WRITE_TOOLS: Readonly<Record<string, WriteToolRule>> = Object.freeze({
   // warehouse-api POST /reservations and its preflight: @Permissions('view_warehouse', 'manage_reservations'),
-  // with manage_warehouse as the warehouse super-permission.
-  'warehouse.reservations.create': Object.freeze({ anyOf: Object.freeze(['view_warehouse', 'manage_reservations', 'manage_warehouse']) }),
-  // crm-api POST /chats/:id/messages: no permission, the sender must be a member of the chat.
-  'chat.messages.send': Object.freeze({ anyOf: Object.freeze([] as string[]) }),
+  // with manage_warehouse as the warehouse super-permission. Target: the frozen task, the one item and its exact quantity.
+  'warehouse.reservations.create': Object.freeze({
+    anyOf: Object.freeze(['view_warehouse', 'manage_reservations', 'manage_warehouse']),
+    target: Object.freeze({ required: Object.freeze(['taskId', 'itemId', 'quantity']), optional: Object.freeze(['projectId']) }),
+  }),
+  // crm-api POST /chats/:id/messages: no permission, the sender must be a member of the chat. Target: that chat.
+  'chat.messages.send': Object.freeze({
+    anyOf: Object.freeze([] as string[]),
+    target: Object.freeze({ required: Object.freeze(['chatId']), optional: Object.freeze([] as string[]) }),
+  }),
 });
+
+export type WriteTarget = Readonly<Record<string, number>>;
 
 export const isWriteTool = (tool: string): boolean => Object.prototype.hasOwnProperty.call(WRITE_TOOLS, tool);
 
@@ -77,6 +96,7 @@ export interface DelegatedWriteTokenRequest {
   approvalId: string;
   tool: string;
   scope: 'write';
+  target: WriteTarget;
 }
 
 export interface DelegatedWriteActClaim {
@@ -93,6 +113,7 @@ export interface DelegatedWriteTokenClaims {
   entityId: number;
   scope: string;
   act: DelegatedWriteActClaim;
+  target: WriteTarget;
   src: 'ai-delegated';
 }
 
@@ -152,7 +173,7 @@ export function parseDelegatedWriteTokenRequest(body: unknown): DelegatedWriteTo
   }
   const b = body as Record<string, unknown>;
 
-  const allowed = new Set(['userId', 'entityId', 'goalId', 'runId', 'approvalId', 'tool', 'scope']);
+  const allowed = new Set(['userId', 'entityId', 'goalId', 'runId', 'approvalId', 'tool', 'scope', 'target']);
   const unknown = Object.keys(b).filter((k) => !allowed.has(k));
   if (unknown.length) throw new BadRequestException(`unexpected field(s): ${unknown.join(', ')}`);
 
@@ -169,5 +190,30 @@ export function parseDelegatedWriteTokenRequest(body: unknown): DelegatedWriteTo
   if (typeof b.tool !== 'string' || !TOOL_PATTERN.test(b.tool)) throw new BadRequestException('tool is not a valid tool name');
   if (!isWriteTool(b.tool)) throw new BadRequestException('tool cannot be pre-approved');
 
-  return { userId, entityId, goalId, runId, approvalId, tool: b.tool, scope: 'write' };
+  const target = parseWriteTarget(b.tool, b.target);
+
+  return { userId, entityId, goalId, runId, approvalId, tool: b.tool, scope: 'write', target };
+}
+
+/**
+ * The record this token is for, exactly as the tool's rule shapes it: JSON
+ * numbers (never strings), positive safe integers, required fields present,
+ * nothing extra. Returned in canonical key order.
+ */
+export function parseWriteTarget(tool: string, raw: unknown): WriteTarget {
+  const rule = WRITE_TOOLS[tool]?.target;
+  if (!rule) throw new BadRequestException('tool cannot be pre-approved');
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new BadRequestException('target must be an object');
+  const t = raw as Record<string, unknown>;
+  const known = new Set([...rule.required, ...rule.optional]);
+  const extra = Object.keys(t).filter((k) => !known.has(k));
+  if (extra.length) throw new BadRequestException(`unexpected target field(s): ${extra.join(', ')}`);
+  const out: Record<string, number> = {};
+  for (const key of [...rule.required, ...rule.optional].sort()) {
+    const v = t[key];
+    if (v === undefined && !rule.required.includes(key)) continue;
+    if (typeof v !== 'number' || !Number.isSafeInteger(v) || v <= 0) throw new BadRequestException(`target.${key} must be a positive integer`);
+    out[key] = v;
+  }
+  return Object.freeze(out);
 }
