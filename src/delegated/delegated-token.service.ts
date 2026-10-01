@@ -14,13 +14,32 @@ import {
   REQUIRED_PERMISSIONS,
   actClaimFor,
 } from './delegated-token.contract';
+import {
+  DELEGATED_WRITE_TOKEN_TTL_SEC,
+  DelegatedWriteActClaim,
+  DelegatedWriteTokenClaims,
+  DelegatedWriteTokenRequest,
+  WRITE_REQUIRED_AI_PERMISSIONS,
+  WRITE_TOOLS,
+  writeScopeFor,
+} from './delegated-write-token.contract';
 
 /** Why a mint was refused. ai-api reads `reason`; every one of them means "suspend, do not retry". */
 export type DelegationRefusal =
   | 'user_not_found'
   | 'user_inactive'
   | 'missing_permission'
+  | 'missing_tool_permission'
   | 'no_organisation_access';
+
+export interface DelegatedWriteTokenResponse {
+  access_token: string;
+  token_type: 'Bearer';
+  expires_in: number;
+  scope: string;
+  entity_id: number;
+  act: DelegatedWriteActClaim;
+}
 
 export interface DelegatedTokenResponse {
   access_token: string;
@@ -102,6 +121,68 @@ export class DelegatedTokenService {
       token_type: 'Bearer',
       expires_in: DELEGATED_TOKEN_TTL_SEC,
       scope: DELEGATED_SCOPE_READ,
+      entity_id: req.entityId,
+      act,
+    };
+  }
+
+  /**
+   * The V3.4 write identity: one standing approval, one tool, one organisation,
+   * two minutes (delegated-write-token.contract.ts). The same three questions
+   * as a read mint, asked fresh, plus two:
+   *   4. the AI write and standing-approval switches, literally;
+   *   5. the business right the tool's own domain route accepts, literally.
+   * Super admin stands in for none of them. Any "no" is `delegation_refused`,
+   * which ai-api reads as "revoke this approval" — never a retry.
+   */
+  async mintWrite(req: DelegatedWriteTokenRequest): Promise<DelegatedWriteTokenResponse> {
+    const scope = writeScopeFor(req.tool, req.approvalId);
+    const act: DelegatedWriteActClaim = { sub: 'ai-goal', goalId: req.goalId, runId: req.runId, approvalId: req.approvalId };
+    const label = `user=${req.userId} entity=${req.entityId} act=ai-goal:write tool=${req.tool} approval=${req.approvalId}`;
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { id: true, email: true, deactivatedAt: true },
+    });
+    if (!user) return this.refused(label, 'user_not_found');
+    if (user.deactivatedAt) return this.refused(label, 'user_inactive');
+
+    const held = await this.permissionNames(user.id, req.entityId);
+    const missing = WRITE_REQUIRED_AI_PERMISSIONS.filter((p) => !held.has(p));
+    if (missing.length) return this.refused(label, 'missing_permission', { missing });
+    const toolRights = WRITE_TOOLS[req.tool]?.anyOf;
+    // parse already refused an unknown tool; a missing entry here is still a no, never a pass.
+    if (!toolRights) return this.refused(label, 'missing_tool_permission');
+    if (toolRights.length && !toolRights.some((p) => held.has(p))) {
+      return this.refused(label, 'missing_tool_permission', { anyOf: [...toolRights] });
+    }
+
+    const organisations = await this.organisationsOf(user.id, user.email);
+    if (!organisations.includes(req.entityId)) return this.refused(label, 'no_organisation_access');
+
+    const claims: DelegatedWriteTokenClaims = {
+      id: user.id,
+      email: user.email,
+      sub: String(user.id),
+      entityId: req.entityId,
+      scope,
+      act,
+      src: DELEGATED_TOKEN_SRC,
+    };
+    const jti = randomUUID();
+    const token = await this.jwt.signAsync(claims, {
+      secret: jwtConstants.secret,
+      expiresIn: DELEGATED_WRITE_TOKEN_TTL_SEC,
+      jwtid: jti,
+    });
+
+    // Never the token itself.
+    this.logger.log(`delegated WRITE token minted ${label} jti=${jti}`);
+    return {
+      access_token: token,
+      token_type: 'Bearer',
+      expires_in: DELEGATED_WRITE_TOKEN_TTL_SEC,
+      scope,
       entity_id: req.entityId,
       act,
     };
