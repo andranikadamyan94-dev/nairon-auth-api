@@ -39,6 +39,13 @@ const ENV = {
  * would not announce itself as an error. It would just quietly make the suite
  * depend on a service being up.
  */
+/*
+ * build() reads jwtConstants.secret, which refuses an unset JWT_SECRET (no
+ * published fallback). A test-only value, so the suite runs without one in
+ * the shell; it never leaves this process.
+ */
+process.env.JWT_SECRET ||= 'nairon-jwt-secret-for-unit-tests';
+
 const realFetch = global.fetch;
 beforeAll(() => {
   global.fetch = (async (url: unknown) => {
@@ -687,5 +694,80 @@ describe('exchanging an access token for an internal one', () => {
     prisma.db.grants.get('grant-1').entityId = 7;
     const result = await withEnv(() => service.exchangeForInternalToken(lying));
     expect(result.entity_id).toBe(7);
+  });
+});
+
+// ─── No signing key, no OAuth ───────────────────────────────────────────────
+
+/*
+ * Before 2026-10-02 an unset OAUTH_TOKEN_SECRET fell back to a string written
+ * in this repository, so anyone who had read the source could mint an MCP
+ * access token. Now the feature refuses instead; the service still starts.
+ */
+describe('without OAUTH_TOKEN_SECRET', () => {
+  const ENV_NO_KEY = { ...ENV, OAUTH_TOKEN_SECRET: '' } as NodeJS.ProcessEnv;
+  const withoutKey = <T>(fn: () => T): T => {
+    const saved = { ...process.env };
+    Object.assign(process.env, ENV_NO_KEY);
+    delete process.env.OAUTH_TOKEN_SECRET;
+    try {
+      return fn();
+    } finally {
+      process.env = saved;
+    }
+  };
+  const request = {
+    clientId: 'client-1',
+    redirectUri: 'https://chatgpt.com/cb',
+    scope: 'nairon:mcp',
+    codeChallenge: 'a'.repeat(43),
+  };
+
+  it('has no fallback key', () => {
+    withoutKey(() => {
+      expect(oauthConfig(ENV_NO_KEY).tokenSecret).toBeNull();
+      expect(oauthConfig({ ...ENV, OAUTH_TOKEN_SECRET: '   ' }).tokenSecret).toBeNull();
+    });
+  });
+
+  it('still constructs, so the rest of auth-api starts', () => {
+    expect(() => build({}, withoutKey)).not.toThrow();
+  });
+
+  it('refuses to start a sign-in or open one', () => {
+    const { service } = build({}, withoutKey);
+    expect(() => service.sealRequest(request)).toThrow(
+      expect.objectContaining({ code: 'temporarily_unavailable', status: 503 }),
+    );
+    expect(() => service.openRequest('anything')).toThrow(
+      expect.objectContaining({ code: 'temporarily_unavailable' }),
+    );
+  });
+
+  it('refuses to issue tokens, before spending the code or refresh token', async () => {
+    const { service, prisma } = build({}, withoutKey);
+    const spy = jest.spyOn(prisma.oAuthAuthorizationCode, 'findUnique');
+    await expect(service.exchangeCode({ code: 'c' })).rejects.toMatchObject({
+      code: 'temporarily_unavailable',
+    });
+    await expect(service.refresh({ refresh_token: 'r' })).rejects.toMatchObject({
+      code: 'temporarily_unavailable',
+    });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('refuses the exchange: a token signed with the old public fallback opens nothing', async () => {
+    const { service, jwt } = build({}, withoutKey);
+    const forged = jwt.sign(
+      { typ: 'mcp_access', sub: '18', gid: 'grant-1', scope: 'nairon:mcp' },
+      {
+        secret: 'nairon_local_dev_oauth_secret',
+        issuer: ENV.OAUTH_ISSUER_URL,
+        audience: ENV.MCP_RESOURCE_URL,
+      },
+    );
+    await expect(service.exchangeForInternalToken(forged)).rejects.toMatchObject({
+      code: 'temporarily_unavailable',
+    });
   });
 });

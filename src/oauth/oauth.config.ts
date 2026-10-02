@@ -26,8 +26,14 @@ export interface OAuthConfig {
    * the moment one leaked into a downstream call. Signed with a different key,
    * an OAuth token presented to crm-api is not a weaker credential — it is not
    * a credential at all.
+   *
+   * Null when OAUTH_TOKEN_SECRET is unset or blank. There is no fallback: a
+   * key written in the source would let anyone who read it mint MCP access
+   * tokens. Without the variable the OAuth feature refuses every request that
+   * would sign or verify with it (503 temporarily_unavailable); the rest of
+   * auth-api runs as before.
    */
-  tokenSecret: string;
+  tokenSecret: string | null;
   accessTokenTtlSec: number;
   refreshTokenTtlSec: number;
   codeTtlSec: number;
@@ -86,9 +92,8 @@ export function oauthConfig(env: NodeJS.ProcessEnv = process.env): OAuthConfig {
     issuer: requireEnv('OAUTH_ISSUER_URL', publicBase),
     publicBaseUrl: publicBase,
     mcpResource: requireEnv('MCP_RESOURCE_URL'),
-    // The dev fallback is deliberately obvious. A deployment that forgets to
-    // set this should be recognisable at a glance, not silently insecure.
-    tokenSecret: env.OAUTH_TOKEN_SECRET || 'nairon_local_dev_oauth_secret',
+    // No fallback: unset means OAuth is off, never "signed with a public key".
+    tokenSecret: env.OAUTH_TOKEN_SECRET?.trim() ? env.OAUTH_TOKEN_SECRET : null,
     accessTokenTtlSec: Number(env.OAUTH_ACCESS_TOKEN_TTL_SEC ?? 600),
     refreshTokenTtlSec: Number(env.OAUTH_REFRESH_TOKEN_TTL_SEC ?? 30 * 24 * 3600),
     codeTtlSec: Number(env.OAUTH_CODE_TTL_SEC ?? 60),

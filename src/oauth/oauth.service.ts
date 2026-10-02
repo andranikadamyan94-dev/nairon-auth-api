@@ -45,6 +45,26 @@ export class OAuthService {
     private readonly auth: AuthService,
   ) {
     this.config = oauthConfig();
+    if (!this.config.tokenSecret)
+      this.logger.error(
+        'OAUTH_TOKEN_SECRET is not set: OAuth will refuse to issue or accept tokens until it is.',
+      );
+  }
+
+  /**
+   * The OAuth signing key, or a refusal. Called before anything is signed,
+   * verified or spent (a code, a refresh token), so a misconfigured server
+   * fails the request cleanly instead of burning the client's credentials.
+   */
+  private tokenKey(): string {
+    const key = this.config.tokenSecret;
+    if (!key)
+      throw new OAuthError(
+        'temporarily_unavailable',
+        'OAuth is not configured on this server',
+        503,
+      );
+    return key;
   }
 
   // ─── Discovery ────────────────────────────────────────────────────────────
@@ -207,14 +227,15 @@ export class OAuthService {
   sealRequest(request: AuthorizeRequest & { userId?: number }): string {
     return this.jwt.sign(
       { typ: 'oauth_authz_request', ...request },
-      { secret: this.config.tokenSecret, expiresIn: this.config.authzRequestTtlSec },
+      { secret: this.tokenKey(), expiresIn: this.config.authzRequestTtlSec },
     );
   }
 
   openRequest(sealed: string): AuthorizeRequest & { userId?: number } {
+    const secret = this.tokenKey();
     let payload: any;
     try {
-      payload = this.jwt.verify(sealed, { secret: this.config.tokenSecret });
+      payload = this.jwt.verify(sealed, { secret });
     } catch {
       throw new OAuthError('invalid_request', 'this sign-in attempt expired; start again');
     }
@@ -365,6 +386,7 @@ export class OAuthService {
   // ─── Token endpoint ───────────────────────────────────────────────────────
 
   async exchangeCode(body: any) {
+    this.tokenKey();
     const code = String(body.code ?? '');
     const clientId = String(body.client_id ?? '');
     const redirectUri = String(body.redirect_uri ?? '');
@@ -405,6 +427,7 @@ export class OAuthService {
   }
 
   async refresh(body: any) {
+    this.tokenKey();
     const presented = String(body.refresh_token ?? '');
     const clientId = String(body.client_id ?? '');
     const record = await this.prisma.oAuthRefreshToken.findUnique({
@@ -459,7 +482,7 @@ export class OAuthService {
         ent: grant.entityId,
       },
       {
-        secret: this.config.tokenSecret,
+        secret: this.tokenKey(),
         expiresIn: this.config.accessTokenTtlSec,
         issuer: this.config.issuer,
         audience: this.config.mcpResource,
@@ -512,9 +535,12 @@ export class OAuthService {
       where: { tokenHash: sha256(token) },
     });
     if (refresh) return this.revokeGrant(refresh.grantId, 'revocation requested');
+    // Without the key no access token can be checked, so none is revoked by it.
+    const secret = this.config.tokenSecret;
+    if (!secret) return;
     try {
       const payload: any = this.jwt.verify(token, {
-        secret: this.config.tokenSecret,
+        secret,
         audience: this.config.mcpResource,
         issuer: this.config.issuer,
       });
@@ -539,10 +565,11 @@ export class OAuthService {
    * consent — and never from the caller.
    */
   async exchangeForInternalToken(accessToken: string) {
+    const secret = this.tokenKey();
     let payload: any;
     try {
       payload = this.jwt.verify(accessToken, {
-        secret: this.config.tokenSecret,
+        secret,
         audience: this.config.mcpResource,
         issuer: this.config.issuer,
       });
