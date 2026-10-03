@@ -46,6 +46,12 @@ model Role {
   /// assignable through any API/UI — set only at the database. Holders
   /// ("superusers") are hidden from every people surface.
   isSuperAdmin Boolean          @default(false)
+  /// Read-only variant of the super-admin authority (2026-10-03): holders see
+  /// everything a super-admin sees but every API refuses their writes. Seeded
+  /// by migration as «Read-Only Super Admin»; never creatable through the API.
+  /// Such a holder does not count as "the last super-admin" — see
+  /// RolesService.assignRoleMapToUser and UsersService.assertNotLastAdmin.
+  readOnly     Boolean          @default(false)
   users        UserRole[]
   permissions  RolePermission[]
 

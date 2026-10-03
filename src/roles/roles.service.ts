@@ -152,9 +152,22 @@ export class RolesService {
     // the map is the whole truth, super-admin assignments included. Two
     // invariants stay with the data, whoever asks: nobody drops their own
     // super-admin role by accident, and the last active super-admin stays.
-    const superRoleIds = new Set(
-      (await this.prisma.role.findMany({ where: { isSuperAdmin: true } as any, select: { id: true } })).map((r) => r.id),
-    );
+    // The read-only super role (2026-10-03) is "own role" for the first rule
+    // but never the last admin for the second: its holders can change
+    // nothing, so they cannot keep the system administrable.
+    const superRoles = await this.prisma.role.findMany({
+      where: { isSuperAdmin: true } as any,
+      select: { id: true, readOnly: true },
+    });
+    const superRoleIds = new Set(superRoles.map((r) => r.id));
+    const fullSuperIds = new Set(superRoles.filter((r) => !r.readOnly).map((r) => r.id));
+    const readOnlySuperIds = new Set(superRoles.filter((r) => r.readOnly).map((r) => r.id));
+    // One account is a super-admin or a read-only super-admin, never both:
+    // the pair would read as "may write" to anything that only checks the
+    // first flag.
+    if (rows.some((r) => fullSuperIds.has(r.roleId)) && rows.some((r) => readOnlySuperIds.has(r.roleId))) {
+      throw new BadRequestException(M.role.superAdminBothRoles);
+    }
     const current = await this.prisma.userRole.findMany({
       where: { userId, roleId: { in: [...superRoleIds] } },
       select: { roleId: true, entityId: true },
@@ -165,12 +178,13 @@ export class RolesService {
     if (dropsSuper && opts.actorId === userId) {
       throw new BadRequestException(M.role.superAdminSelfRemoval);
     }
-    if (dropsSuper && !rows.some((r) => superRoleIds.has(r.roleId))) {
+    const dropsFull = current.some((c) => fullSuperIds.has(c.roleId) && !keeps(c));
+    if (dropsFull && !rows.some((r) => fullSuperIds.has(r.roleId))) {
       const others = await this.prisma.user.count({
         where: {
           id: { not: userId },
           deactivatedAt: null,
-          roles: { some: { role: { isSuperAdmin: true } as any } },
+          roles: { some: { role: { isSuperAdmin: true, readOnly: false } as any } },
         },
       });
       if (others === 0) throw new ConflictException(M.role.lastSuperAdmin);

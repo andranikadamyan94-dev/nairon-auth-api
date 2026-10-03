@@ -137,12 +137,15 @@ export class UsersService {
   /**
    * Admin here means what the guards mean by it: any role flagged
    * isSuperAdmin (levels are pure seniority since the org restructure).
+   * A read-only super-admin (2026-10-03) can reactivate nobody, so it does
+   * not count — deactivating the last writing super-admin is refused even
+   * when read-only ones remain, and a read-only one can always be deactivated.
    */
   private async assertNotLastAdmin(id: number) {
     const admins = await this.prisma.user.findMany({
       where: {
         deactivatedAt: null,
-        roles: { some: { role: { isSuperAdmin: true } as any } },
+        roles: { some: { role: { isSuperAdmin: true, readOnly: false } as any } },
       },
       select: { id: true },
     });
