@@ -4,7 +4,8 @@ WORKDIR /app
 RUN apk add --no-cache openssl python3 make g++
 RUN npm install -g pnpm
 
-COPY package.json pnpm-lock.yaml ./
+# pnpm-workspace.yaml carries allowBuilds; current pnpm refuses ignored build scripts without it.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
