@@ -74,6 +74,9 @@ export const ALL_PERMISSIONS = [
   'manage_inventory',
   'manage_procurement',
   'view_reservations', 'manage_reservations',
+  // 2026-10-01: the warehouse catalog's admin queue («Կատալոգի հարցումներ»):
+  // see the queue and approve / reject / ask for details. Granted to no role.
+  'view_catalog_requests',
   'manage_resource_returns',
   'view_resources', 'view_assets', 'view_maintenance',
   'view_partners', 'manage_partners',
