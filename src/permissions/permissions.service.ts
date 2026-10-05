@@ -63,6 +63,10 @@ export const ALL_PERMISSIONS = [
   'create_project_status', 'update_project_status', 'delete_project_status',
   'manage_backlogs',
   'manage_construction_objects',
+  // 2026-10-05: object page tabs — each right shows one tab of a construction
+  // object and opens only that object's read routes; nothing else.
+  'view_object_overview', 'view_object_people', 'view_object_subobjects', 'view_object_materials', 'view_object_estimate',
+  'view_object_finance', 'view_object_requests', 'view_object_assets',
   // #2449 file explorer (2026-09-24): see the tree, write in folders one may
   // edit, change who may see a folder, shape the organisation-level tree.
   'view_files', 'manage_files', 'share_files', 'manage_file_structure',

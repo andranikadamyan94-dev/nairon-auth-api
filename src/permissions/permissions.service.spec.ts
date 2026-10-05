@@ -31,6 +31,28 @@ describe('Կատալոգի հարցումների իրավունքը (view_catal
   });
 });
 
+const OBJECT_TAB_PERMISSIONS = [
+  'view_object_people', 'view_object_subobjects', 'view_object_materials', 'view_object_estimate',
+  'view_object_finance', 'view_object_requests', 'view_object_assets',
+];
+
+describe('Շինարարական օբյեկտի ներդիրների իրավունքները (view_object_*, 2026-10-05)', () => {
+  it('յոթն էլ կատալոգում են ճիշտ մեկ անգամ և թաքցված (retired) չեն', () => {
+    for (const name of OBJECT_TAB_PERMISSIONS) {
+      expect(ALL_PERMISSIONS.filter((p) => p === name)).toEqual([name]);
+      expect(RETIRED_PERMISSIONS).not.toContain(name);
+    }
+  });
+  it('seed-ը գրում է միայն Permission տողերը՝ ոչ մի դերի չի նշանակում', async () => {
+    const upsert = jest.fn().mockResolvedValue({});
+    await new PermissionsService({ permission: { upsert } } as any).seedPermissions();
+    for (const name of OBJECT_TAB_PERMISSIONS) {
+      expect(upsert).toHaveBeenCalledWith({ where: { name }, create: { name }, update: {} });
+    }
+    expect(upsert).toHaveBeenCalledTimes(ALL_PERMISSIONS.length);
+  });
+});
+
 /*
  * Nairon AI V2–V5 switches. Each is a literal grant the owner ticks per role;
  * being in the catalogue must hand it to nobody, super-admin roles included.
