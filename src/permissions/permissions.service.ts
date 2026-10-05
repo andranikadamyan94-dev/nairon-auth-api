@@ -154,6 +154,14 @@ export const ALL_PERMISSIONS = [
   //                          delegated WRITE tokens need it (with ai_write_actions)
   'ai_memory', 'ai_memory_publish', 'ai_memory_manage', 'ai_long_goals', 'ai_relations_analysis', 'ai_workflow_author', 'ai_workflow_publisher', 'ai_workflow_view',
   'ai_standing_approvals',
+  // Screen agent (2026-10-05, local): the assistant may do a task through the
+  // screen — a browser signed in as this person, every change paused for the
+  // person's «Հաստատել». Like voice it is additive and needs use_ai_assistant;
+  // it widens nothing, since each request the page sends is the person's own
+  // and the owning service authorizes it as usual. ai-api counts a super admin
+  // as holding it. Catalogue only: migration 20261005120000_permission_use_ai_screen
+  // adds the row too, and neither grants it to any role.
+  'use_ai_screen',
   // Marketing app (2026-09-22 build plan, Phase 2). Catalogue only: no role
   // is granted anything here; the owner grants per organization as usual.
   'marketing_view', 'marketing_manage_campaigns', 'marketing_edit_content',
