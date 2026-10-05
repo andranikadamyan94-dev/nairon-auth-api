@@ -95,3 +95,34 @@ describe('Nairon AI V2–V5 իրավունքները կատալոգում', () =
     expect(calls.map((c) => `${c.model}.${c.method}`)).toEqual(['role.findUnique']);
   });
 });
+
+/*
+ * Screen agent (2026-10-05): `use_ai_screen`. In the catalogue and visible on
+ * the roles screen; its migration adds the bare Permission row and grants it to
+ * nobody — granting is the owner's, per role.
+ */
+describe('use_ai_screen — ԱԲ-ն կարող է աշխատել էկրանով', () => {
+  const MIGRATION = join(__dirname, '..', '..', 'prisma', 'migrations', '20261005120000_permission_use_ai_screen', 'migration.sql');
+
+  it('կատալոգում է ճիշտ մեկ անգամ և թաքցված չէ', () => {
+    expect(ALL_PERMISSIONS.filter((p) => p === 'use_ai_screen')).toEqual(['use_ai_screen']);
+    expect(RETIRED_PERMISSIONS).not.toContain('use_ai_screen');
+  });
+
+  it('seed-ը գրում է միայն Permission տողը', async () => {
+    const { prisma, calls } = recordingPrisma();
+    await new PermissionsService(prisma).seedPermissions();
+    const call = calls.find((c) => c.args.where.name === 'use_ai_screen');
+    expect(call).toEqual({ model: 'permission', method: 'upsert', args: { where: { name: 'use_ai_screen' }, create: { name: 'use_ai_screen' }, update: {} } });
+  });
+
+  it('միգրացիան ավելացնում է միայն Permission տողը՝ idempotent, ոչ մի դերի չի նշանակում', () => {
+    const sql = readFileSync(MIGRATION, 'utf8')
+      .split('\n')
+      .filter((l) => !l.trim().startsWith('--'))
+      .join('\n');
+    expect(sql).toMatch(/INSERT INTO "Permission" \("name"\)\s+VALUES \('use_ai_screen'\)\s+ON CONFLICT \("name"\) DO NOTHING;/);
+    expect(sql).not.toMatch(/RolePermission|UserRole|"Role"/);
+    expect(sql).not.toMatch(/\b(UPDATE|DELETE)\b/i);
+  });
+});
