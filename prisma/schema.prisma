@@ -40,7 +40,8 @@ model User {
 model Role {
   id           Int              @id @default(autoincrement())
   name         String
-  level        Int              @default(1)
+  /// Seniority 1–5 (Սկսնակ … Բաժնի ղեկավար); null = no level picked (2026-10-05).
+  level        Int?             @default(1)
   departmentId Int?
   /// System authority, off the seniority ladder. Never creatable or
   /// assignable through any API/UI — set only at the database. Holders

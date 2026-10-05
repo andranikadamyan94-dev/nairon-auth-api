@@ -4,13 +4,13 @@ import { Type } from 'class-transformer';
 
 export class CreateRoleDto {
   @ApiProperty() @IsString() @MinLength(1) name: string;
-  @ApiProperty() @IsInt() @Min(0) level: number;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) level?: number | null;
   @ApiPropertyOptional() @IsOptional() @IsInt() departmentId?: number;
 }
 
 export class UpdateRoleDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) name?: string;
-  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) level?: number;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) level?: number | null;
   @ApiPropertyOptional() @IsOptional() @IsInt() departmentId?: number;
 }
 

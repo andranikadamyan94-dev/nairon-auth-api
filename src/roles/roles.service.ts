@@ -18,8 +18,8 @@ export class RolesService {
 
   // Phase 6 decouple (2026-09-08): Role.departmentId is retired — never
   // written, never filtered on. The column stays until the legacy tables go.
-  async createRole(name: string, level: number, _departmentId?: number) {
-    return this.prisma.role.create({ data: { name, level } });
+  async createRole(name: string, level?: number | null, _departmentId?: number) {
+    return this.prisma.role.create({ data: { name, level: level ?? null } });
   }
 
   async getAllRoles(_departmentId?: number, includeSuperAdmin = false) {
