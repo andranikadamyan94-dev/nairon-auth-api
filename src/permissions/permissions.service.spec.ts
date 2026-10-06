@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 
 import { RolesService } from '../roles/roles.service';
-import { ALL_PERMISSIONS, PermissionsService, RETIRED_PERMISSIONS } from './permissions.service';
+import { AI_DOCK_MARKER_PERMISSION, AI_DOCK_PERMISSIONS, ALL_PERMISSIONS, PermissionsService, RETIRED_PERMISSIONS } from './permissions.service';
 
 describe('Օրվա ամփոփման և առաջադրանքների վերլուծության միասնական իրավունք', () => {
   it('ունի միայն մեկ ai_task_analysis անուն՝ առանց ավտոմատ և ձեռքով տարբերակների', () => {
@@ -205,5 +205,40 @@ describe('AI dock controls — ai_mode_* / ai_dock_*', () => {
     expect(screen).toContain(`screen.name = 'use_ai_screen'`);
     expect(screen).toContain(`name = 'ai_mode_screen'`);
     expect(screen).toContain('rp."entityId"');
+  });
+});
+
+/*
+ * AI dock marker (2026-10-06): the tenth dock control, «Նշել էջում». Granted like the eight — to every role holding
+ * use_ai_assistant, in the same organisation — and kept OUT of the nine the session's aiDockPermissions marker counts.
+ */
+describe('AI dock marker — ai_dock_marker', () => {
+  const MIGRATION = join(__dirname, '..', '..', 'prisma', 'migrations', '20261006160000_ai_dock_marker', 'migration.sql');
+  const sql = () => readFileSync(MIGRATION, 'utf8').split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
+
+  it('is in the catalogue exactly once, not retired, and not one of the nine the session marker counts', () => {
+    expect(AI_DOCK_MARKER_PERMISSION).toBe('ai_dock_marker');
+    expect(ALL_PERMISSIONS.filter((p) => p === 'ai_dock_marker')).toEqual(['ai_dock_marker']);
+    expect(RETIRED_PERMISSIONS).not.toContain('ai_dock_marker');
+    expect(AI_DOCK_PERMISSIONS).toHaveLength(9);
+    expect(AI_DOCK_PERMISSIONS as readonly string[]).not.toContain('ai_dock_marker');
+  });
+
+  it('the seed writes its Permission row', async () => {
+    const upsert = jest.fn().mockResolvedValue({});
+    await new PermissionsService({ permission: { upsert } } as any).seedPermissions();
+    expect(upsert).toHaveBeenCalledWith({ where: { name: 'ai_dock_marker' }, create: { name: 'ai_dock_marker' }, update: {} });
+  });
+
+  it('the migration adds the row and grants it to every holder of use_ai_assistant in the same organisation, idempotently', () => {
+    const text = sql();
+    expect(text).toMatch(/INSERT INTO "Permission" \("name"\) VALUES\s+\('ai_dock_marker'\)\s+ON CONFLICT \("name"\) DO NOTHING;/);
+    expect(text).not.toMatch(/\b(UPDATE|DELETE|DROP|ALTER|TRUNCATE)\b/i);
+    expect(text.match(/ON CONFLICT/g)).toHaveLength(2);
+    const [, grant] = text.split(/INSERT INTO /).slice(1);
+    expect(grant).toContain(`assistant.name = 'use_ai_assistant'`);
+    expect(grant).toContain(`name = 'ai_dock_marker'`);
+    expect(grant).toContain('rp."entityId"');
+    expect(grant).not.toMatch(/use_ai_screen|ai_mode_screen/);
   });
 });

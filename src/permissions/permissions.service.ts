@@ -18,6 +18,14 @@ export const AI_DOCK_PERMISSIONS = [
   'ai_dock_workflows', 'ai_dock_new_chat', 'ai_dock_attach', 'ai_dock_voice',
 ] as const;
 
+/**
+ * The dock's tenth control (2026-10-06): the marker «Նշել էջում» (ai-api AI_MARKER_SELECTION). Deliberately NOT one of
+ * the nine above — the session's aiDockPermissions marker keeps counting those, so the dock reads them literally
+ * whether or not this row exists yet. Migration 20261006160000_ai_dock_marker adds it and grants it to every role
+ * holding use_ai_assistant; ai-api treats it as granted to everybody until the row exists.
+ */
+export const AI_DOCK_MARKER_PERMISSION = 'ai_dock_marker';
+
 export const ALL_PERMISSIONS = [
       
       
@@ -192,6 +200,9 @@ export const ALL_PERMISSIONS = [
   //   «Գործընթացներ» · ai_dock_new_chat «Նոր զրույց» · ai_dock_attach (paperclip)
   //   · ai_dock_voice (microphone)
   ...AI_DOCK_PERMISSIONS,
+  // ai_dock_marker «Նշել էջում» (2026-10-06): mark a region or an element of the page for the next message.
+  // Migration 20261006160000_ai_dock_marker adds the row and grants it to every role holding use_ai_assistant.
+  AI_DOCK_MARKER_PERMISSION,
   // Marketing app (2026-09-22 build plan, Phase 2). Catalogue only: no role
   // is granted anything here; the owner grants per organization as usual.
   'marketing_view', 'marketing_manage_campaigns', 'marketing_edit_content',
