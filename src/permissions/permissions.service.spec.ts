@@ -160,3 +160,50 @@ describe('use_ai_screen — ԱԲ-ն կարող է աշխատել էկրանով'
     expect(sql).not.toMatch(/\b(UPDATE|DELETE)\b/i);
   });
 });
+
+/*
+ * AI dock controls (2026-10-06): nine per-role switches. Unlike the rows above,
+ * the migration grants them — to every role that holds use_ai_assistant, in the
+ * same organisation — so nobody loses a control until an admin unticks it;
+ * ai_mode_screen only where use_ai_screen is held today.
+ */
+describe('AI dock controls — ai_mode_* / ai_dock_*', () => {
+  const DOCK = [
+    'ai_mode_auto', 'ai_mode_screen', 'ai_dock_saved', 'ai_dock_history', 'ai_dock_export',
+    'ai_dock_workflows', 'ai_dock_new_chat', 'ai_dock_attach', 'ai_dock_voice',
+  ];
+  const MIGRATION = join(__dirname, '..', '..', 'prisma', 'migrations', '20261006120000_ai_dock_permissions', 'migration.sql');
+  const sql = () => readFileSync(MIGRATION, 'utf8').split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
+
+  it('all nine are in the catalogue exactly once and not retired', () => {
+    for (const name of DOCK) {
+      expect(ALL_PERMISSIONS.filter((p) => p === name)).toEqual([name]);
+      expect(RETIRED_PERMISSIONS).not.toContain(name);
+    }
+  });
+
+  it('the seed writes only their Permission rows', async () => {
+    const upsert = jest.fn().mockResolvedValue({});
+    await new PermissionsService({ permission: { upsert } } as any).seedPermissions();
+    for (const name of DOCK) expect(upsert).toHaveBeenCalledWith({ where: { name }, create: { name }, update: {} });
+  });
+
+  it('the migration adds the nine rows, idempotently', () => {
+    const text = sql();
+    expect(text).toMatch(/INSERT INTO "Permission" \("name"\) VALUES[\s\S]+?ON CONFLICT \("name"\) DO NOTHING;/);
+    for (const name of DOCK) expect(text).toContain(`('${name}')`);
+    expect(text).not.toMatch(/\b(UPDATE|DELETE|DROP|ALTER|TRUNCATE)\b/i);
+    expect(text.match(/ON CONFLICT/g)).toHaveLength(3);
+  });
+
+  it('grants eight to every holder of use_ai_assistant and ai_mode_screen only to holders of use_ai_screen, in the same organisation', () => {
+    const [, eight, screen] = sql().split(/INSERT INTO /).slice(1).map((s) => s);
+    expect(eight).toContain(`assistant.name = 'use_ai_assistant'`);
+    expect(eight).toContain('rp."entityId"');
+    for (const name of DOCK.filter((n) => n !== 'ai_mode_screen')) expect(eight).toContain(`'${name}'`);
+    expect(eight).not.toContain('ai_mode_screen');
+    expect(screen).toContain(`screen.name = 'use_ai_screen'`);
+    expect(screen).toContain(`name = 'ai_mode_screen'`);
+    expect(screen).toContain('rp."entityId"');
+  });
+});

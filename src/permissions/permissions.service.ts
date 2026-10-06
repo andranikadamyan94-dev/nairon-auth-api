@@ -169,6 +169,20 @@ export const ALL_PERMISSIONS = [
   // as holding it. Catalogue only: migration 20261005120000_permission_use_ai_screen
   // adds the row too, and neither grants it to any role.
   'use_ai_screen',
+  // AI dock controls (2026-10-06, owner): every control in the AI dock is a
+  // per-role switch, the two modes included. Each only narrows — the feature's
+  // own right above is still required (ai-api src/auth/dock-permissions.ts;
+  // shared-ui aiAccess.ts). Migration 20261006120000_ai_dock_permissions adds
+  // the rows and grants them to every role holding use_ai_assistant
+  // (ai_mode_screen: to every role holding use_ai_screen), so nothing changes
+  // until an admin unticks one.
+  //   ai_mode_auto «Ավտոմատ» · ai_mode_screen «Էկրանով» · ai_dock_saved
+  //   «Հիշողություն» · ai_dock_history «Իմ հանձնարարությունները» ·
+  //   ai_dock_export «Հաստատման սպասող գործընթացներ» · ai_dock_workflows
+  //   «Գործընթացներ» · ai_dock_new_chat «Նոր զրույց» · ai_dock_attach (paperclip)
+  //   · ai_dock_voice (microphone)
+  'ai_mode_auto', 'ai_mode_screen', 'ai_dock_saved', 'ai_dock_history', 'ai_dock_export',
+  'ai_dock_workflows', 'ai_dock_new_chat', 'ai_dock_attach', 'ai_dock_voice',
   // Marketing app (2026-09-22 build plan, Phase 2). Catalogue only: no role
   // is granted anything here; the owner grants per organization as usual.
   'marketing_view', 'marketing_manage_campaigns', 'marketing_edit_content',
