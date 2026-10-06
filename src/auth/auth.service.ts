@@ -3,6 +3,15 @@ import { M } from '../constants/messages';
 import { JwtService } from '@nestjs/jwt';
 import { AuthPrismaService } from '../prisma.service';
 import * as bcrypt from 'bcryptjs';
+import { AI_DOCK_PERMISSIONS } from '../permissions/permissions.service';
+
+/**
+ * The session's capability marker for the AI dock (2026-10-06): `user.aiDockPermissions: true` while the catalogue
+ * holds all nine dock rows (migration 20261006120000_ai_dock_permissions, and the start-up seed). With it the dock
+ * reads the nine literally — a role with one unticked has that control off. Without it (an older auth-api, or the
+ * rows missing) the dock keeps every control on, as before.
+ */
+export const AI_DOCK_MARKER = 'aiDockPermissions';
 
 /** The user record every session response carries: roles, their permissions. */
 const USER_SESSION_INCLUDE = {
@@ -24,6 +33,33 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+  /** Once all nine rows are seen they stay (rows are never removed); until then, re-read at most every 60 s. */
+  private dockCatalogue: { present: boolean; checkedAt: number } | null = null;
+
+  async aiDockCatalogue(): Promise<boolean> {
+    const now = Date.now();
+    if (this.dockCatalogue && (this.dockCatalogue.present || now - this.dockCatalogue.checkedAt < 60_000)) {
+      return this.dockCatalogue.present;
+    }
+    try {
+      const count = await this.prisma.permission.count({ where: { name: { in: [...AI_DOCK_PERMISSIONS] } } });
+      this.dockCatalogue = { present: count === AI_DOCK_PERMISSIONS.length, checkedAt: now };
+      return this.dockCatalogue.present;
+    } catch {
+      // Never fails a sign-in: no marker is the old behaviour (every dock control on), and the next call asks again.
+      return false;
+    }
+  }
+
+  /**
+   * Every session response: the token and the user, plus — when the catalogue is there — `aiDockPermissions: true`
+   * at the top level (beside access_token) and on `user`, a strict boolean. Absent otherwise, never `false`.
+   */
+  private async session<T extends object>(access_token: string, payload: T) {
+    if (!(await this.aiDockCatalogue())) return { access_token, user: payload };
+    return { access_token, [AI_DOCK_MARKER]: true as const, user: { ...payload, [AI_DOCK_MARKER]: true as const } };
+  }
+
   async signIn(email: string, pass: string) {
     const user = await this.prisma.user.findFirst({
       where: { email: email.toLowerCase().trim() },
@@ -41,10 +77,7 @@ export class AuthService {
     const { password, ...payload } = user;
     // No admin claim in the token: super-admin (level-0 role) is entity-scoped,
     // so every service resolves it per request against the selected entity.
-    return {
-      access_token: await this.jwtService.signAsync({ id: payload.id, email: payload.email }),
-      user: payload,
-    };
+    return this.session(await this.jwtService.signAsync({ id: payload.id, email: payload.email }), payload);
   }
 
   async getMe(token: string) {
@@ -58,7 +91,7 @@ export class AuthService {
       // its full 30 days, so the check has to happen here on every restore.
       if (!user || user.deactivatedAt) throw new UnauthorizedException();
       const { password, ...payload } = user;
-      return { access_token: token, user: payload };
+      return await this.session(token, payload);
     } catch {
       throw new UnauthorizedException();
     }
@@ -76,9 +109,6 @@ export class AuthService {
     });
     if (!user || user.deactivatedAt) return null;
     const { password, ...payload } = user;
-    return {
-      access_token: await this.jwtService.signAsync({ id: payload.id, email: payload.email }),
-      user: payload,
-    };
+    return this.session(await this.jwtService.signAsync({ id: payload.id, email: payload.email }), payload);
   }
 }

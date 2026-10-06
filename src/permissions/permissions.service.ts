@@ -8,6 +8,16 @@ export const RETIRED_PERMISSIONS = [
   'view_department_roles',
 ];
 
+/**
+ * The AI dock's nine per-role controls (2026-10-06), in the dock's order. While
+ * all nine rows exist, every session response carries `user.aiDockPermissions:
+ * true` (auth.service.ts) and the dock reads them literally: unticked = off.
+ */
+export const AI_DOCK_PERMISSIONS = [
+  'ai_mode_auto', 'ai_mode_screen', 'ai_dock_saved', 'ai_dock_history', 'ai_dock_export',
+  'ai_dock_workflows', 'ai_dock_new_chat', 'ai_dock_attach', 'ai_dock_voice',
+] as const;
+
 export const ALL_PERMISSIONS = [
       
       
@@ -181,8 +191,7 @@ export const ALL_PERMISSIONS = [
   //   ai_dock_export «Հաստատման սպասող գործընթացներ» · ai_dock_workflows
   //   «Գործընթացներ» · ai_dock_new_chat «Նոր զրույց» · ai_dock_attach (paperclip)
   //   · ai_dock_voice (microphone)
-  'ai_mode_auto', 'ai_mode_screen', 'ai_dock_saved', 'ai_dock_history', 'ai_dock_export',
-  'ai_dock_workflows', 'ai_dock_new_chat', 'ai_dock_attach', 'ai_dock_voice',
+  ...AI_DOCK_PERMISSIONS,
   // Marketing app (2026-09-22 build plan, Phase 2). Catalogue only: no role
   // is granted anything here; the owner grants per organization as usual.
   'marketing_view', 'marketing_manage_campaigns', 'marketing_edit_content',
