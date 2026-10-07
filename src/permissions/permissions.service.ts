@@ -57,6 +57,9 @@ export const ALL_PERMISSIONS = [
   'page_finance',   'page_members',  'page_applications',
   'page_assignments', 'page_warehouse',
   'create_project', 'update_project', 'delete_project', 'manage_project_members',
+  // 2026-10-07: copy a project with its whole sub-tree (background job,
+  // crm-api POST /projects/:id/duplicate). Granted to no role.
+  'duplicate_project',
   'create_project_task', 'update_project_task', 'delete_project_task', 'assign_project_task',
   'comment_project_task', 'manage_project_attachments', 'manage_project_subtasks',
   'manage_project_labels', 'manage_project_tags',

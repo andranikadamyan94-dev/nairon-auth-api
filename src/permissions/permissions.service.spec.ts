@@ -31,6 +31,19 @@ describe('Կատալոգի հարցումների իրավունքը (view_catal
   });
 });
 
+describe('Նախագծի կրկնօրինակման իրավունքը (duplicate_project, 2026-10-07)', () => {
+  it('կատալոգում է ճիշտ մեկ անգամ և թաքցված (retired) չէ', () => {
+    expect(ALL_PERMISSIONS.filter((p) => p === 'duplicate_project')).toEqual(['duplicate_project']);
+    expect(RETIRED_PERMISSIONS).not.toContain('duplicate_project');
+  });
+  it('seed-ը գրում է միայն Permission տողը՝ ոչ մի դերի չի նշանակում', async () => {
+    const upsert = jest.fn().mockResolvedValue({});
+    await new PermissionsService({ permission: { upsert } } as any).seedPermissions();
+    expect(upsert).toHaveBeenCalledWith({ where: { name: 'duplicate_project' }, create: { name: 'duplicate_project' }, update: {} });
+    expect(upsert).toHaveBeenCalledTimes(ALL_PERMISSIONS.length);
+  });
+});
+
 const OBJECT_TAB_PERMISSIONS = [
   'view_object_people', 'view_object_subobjects', 'view_object_materials', 'view_object_estimate',
   'view_object_finance', 'view_object_requests', 'view_object_assets',
