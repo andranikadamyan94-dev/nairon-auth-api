@@ -15,6 +15,8 @@ export const M = {
     superAdminUntouchable: 'Սուպեր ադմինի դերերը համակարգից կառավարելի չեն',
     superAdminSelfRemoval: 'Սեփական սուպեր ադմինի դերը հեռացնել հնարավոր չէ',
     lastSuperAdmin: 'Սա վերջին ակտիվ սուպեր ադմինն է․ դերը հեռացնելը կփակի կառավարումը բոլորի համար',
+    /** #56 (2026-10-07): a role someone holds is not deleted from under them. */
+    heldRoleDelete: (holders: number) => `Դերը չի կարող ջնջվել․ այն ունի ${holders} կրող։`,
     superAdminBothRoles: 'Սուպեր ադմինի և միայն դիտող սուպեր ադմինի դերերը միաժամանակ նշանակել հնարավոր չէ',
   },
 

@@ -7,6 +7,21 @@ import { jwtConstants } from '../auth/constants';
 import { OAuthConfig, SUPPORTED_SCOPES, OAUTH_SCOPES, oauthConfig } from './oauth.config';
 import { randomToken, sha256, verifyPkceS256 } from './oauth.crypto';
 import { checkRedirectUri, matchesRegistered } from './redirect-policy';
+import { HubNotifier } from '../shared/hub-notifier';
+
+/** Where a person reviews their account; there is no connected-apps page yet. */
+const ACCOUNT_LINK = '/profile';
+
+/** Why a grant was cut off by the server rather than by the person. */
+export type ForcedRevocation = 'code_replay' | 'refresh_reuse';
+
+const FORCED_REASON_HY: Record<ForcedRevocation, string> = {
+  code_replay: 'մուտքի կոդը կրկին օգտագործվեց',
+  refresh_reuse: 'թարմացման թոքենը կրկին օգտագործվեց',
+};
+
+const yerevanTime = (d: Date) =>
+  d.toLocaleString('hy-AM', { timeZone: 'Asia/Yerevan', dateStyle: 'short', timeStyle: 'short' });
 
 /** An OAuth error that must reach the client as a spec-shaped body. */
 export class OAuthError extends Error {
@@ -38,6 +53,8 @@ export interface WorkspaceChoice {
 export class OAuthService {
   private readonly logger = new Logger(OAuthService.name);
   readonly config: OAuthConfig;
+  /** Security notices go to hr-api's hub. Replaced in tests. */
+  notifier: HubNotifier;
 
   constructor(
     private readonly prisma: AuthPrismaService,
@@ -45,6 +62,7 @@ export class OAuthService {
     private readonly auth: AuthService,
   ) {
     this.config = oauthConfig();
+    this.notifier = new HubNotifier();
     if (!this.config.tokenSecret)
       this.logger.error(
         'OAUTH_TOKEN_SECRET is not set: OAuth will refuse to issue or accept tokens until it is.',
@@ -356,6 +374,14 @@ export class OAuthService {
   ): Promise<{ code: string; state?: string }> {
     await this.assertWorkspaceAllowed(userId, entityId);
 
+    // A notice for a client this person has not already let in. Re-consenting
+    // to a client that still holds a live grant (ChatGPT does it on every
+    // reconnect) mints a new grant row but is not news, so it stays silent.
+    const alreadyConnected = await this.prisma.oAuthGrant.findFirst({
+      where: { userId, clientId: request.clientId, revokedAt: null },
+      select: { id: true },
+    });
+
     const grant = await this.prisma.oAuthGrant.create({
       data: {
         id: randomToken(16),
@@ -380,6 +406,8 @@ export class OAuthService {
       },
     });
 
+    if (!alreadyConnected) void this.noticeAccessGranted(userId, request.clientId);
+
     return { code, state: request.state };
   }
 
@@ -401,7 +429,7 @@ export class OAuthService {
     // Replay of a spent code means the code leaked. The grant goes with it:
     // whoever holds the copy must not keep what it bought.
     if (record.consumedAt) {
-      await this.revokeGrant(record.grantId, 'authorization code replayed');
+      await this.revokeGrant(record.grantId, 'authorization code replayed', 'code_replay');
       throw new OAuthError('invalid_grant', 'code has already been used');
     }
     if (record.expiresAt.getTime() < Date.now()) {
@@ -443,7 +471,7 @@ export class OAuthService {
      * legitimate client re-authorizes, the thief gets nothing.
      */
     if (record.usedAt) {
-      await this.revokeGrant(record.grantId, 'refresh token reused');
+      await this.revokeGrant(record.grantId, 'refresh token reused', 'refresh_reuse');
       throw new OAuthError('invalid_grant', 'refresh token was already used');
     }
     if (record.expiresAt.getTime() < Date.now()) {
@@ -522,12 +550,79 @@ export class OAuthService {
     };
   }
 
-  async revokeGrant(grantId: string, reason: string): Promise<void> {
-    await this.prisma.oAuthGrant.updateMany({
+  /**
+   * `forced` marks a revocation the server made on the person's behalf (a
+   * replayed code, a reused refresh token). Only those are told to the person,
+   * and only when this call is the one that actually cut the grant off — a
+   * second replay of an already dead grant is not a second notice. A revoke the
+   * client or person asked for (RFC 7009) is not news to them.
+   */
+  async revokeGrant(grantId: string, reason: string, forced?: ForcedRevocation): Promise<void> {
+    const result = await this.prisma.oAuthGrant.updateMany({
       where: { id: grantId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
     this.logger.warn(`revoked OAuth grant ${grantId}: ${reason}`);
+    if (forced && result?.count > 0) void this.noticeAccessRevoked(grantId, forced);
+  }
+
+  // ─── Security notices (system.app_access_*; mandatory, always emailed) ────
+
+  /** Never throws: a notice must not change the outcome of a sign-in. */
+  private async noticeAccessGranted(userId: number, clientId: string): Promise<void> {
+    try {
+      const client = await this.clientName(clientId);
+      const when = yerevanTime(new Date());
+      await this.notifier.notify({
+        userId,
+        type: 'system.app_access_granted',
+        title: 'Նոր հավելված է միացվել ձեր հաշվին',
+        body:
+          `«${client}» հավելվածին տրվեց մուտք ձեր Nairon հաշվին (${when})։ ` +
+          'Եթե դա դուք չեք արել, անմիջապես փոխեք գաղտնաբառը և դիմեք ադմինիստրատորին։',
+        url: ACCOUNT_LINK,
+        email: {
+          subject: `Nairon․ «${client}» հավելվածը միացվեց ձեր հաշվին`,
+          details: [
+            { label: 'Հավելված', value: client },
+            { label: 'Ժամանակ', value: when },
+          ],
+        },
+      });
+    } catch (error) {
+      this.logger.warn(`app_access_granted notice skipped: ${(error as Error)?.name ?? 'error'}`);
+    }
+  }
+
+  private async noticeAccessRevoked(grantId: string, forced: ForcedRevocation): Promise<void> {
+    try {
+      const grant = await this.prisma.oAuthGrant.findUnique({
+        where: { id: grantId },
+        select: { userId: true, clientId: true },
+      });
+      if (!grant) return;
+      const client = await this.clientName(grant.clientId);
+      const why = FORCED_REASON_HY[forced];
+      await this.notifier.notify({
+        userId: grant.userId,
+        type: 'system.app_access_revoked',
+        title: 'Հավելվածի մուտքը ձեր հաշվին դադարեցվեց',
+        body:
+          `«${client}» հավելվածի մուտքը ձեր Nairon հաշվին դադարեցվեց անվտանգության նկատառումով՝ ${why}։ ` +
+          'Անհրաժեշտության դեպքում միացրեք հավելվածը կրկին։ Եթե կասկածում եք, որ ձեր տվյալները բացահայտվել են, փոխեք գաղտնաբառը։',
+        url: ACCOUNT_LINK,
+        email: {
+          subject: `Nairon․ «${client}» հավելվածի մուտքը դադարեցվեց`,
+          details: [
+            { label: 'Հավելված', value: client },
+            { label: 'Պատճառ', value: why },
+            { label: 'Ժամանակ', value: yerevanTime(new Date()) },
+          ],
+        },
+      });
+    } catch (error) {
+      this.logger.warn(`app_access_revoked notice skipped: ${(error as Error)?.name ?? 'error'}`);
+    }
   }
 
   async revokeByToken(token: string): Promise<void> {

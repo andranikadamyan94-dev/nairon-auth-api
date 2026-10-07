@@ -64,6 +64,13 @@ export class RolesService {
 
   async deleteRole(id: number) {
     await this.assertNotSuperAdminRole(id);
+    // #56: refuse while anyone holds it (any organization). Deleting would
+    // cascade the assignments away and silently strip people of their rights.
+    // People, not assignments: one person holding it in two organizations is one holder.
+    const holders = (
+      await this.prisma.userRole.findMany({ where: { roleId: id }, select: { userId: true }, distinct: ['userId'] })
+    ).length;
+    if (holders > 0) throw new BadRequestException(M.role.heldRoleDelete(holders));
     return this.prisma.role.delete({ where: { id } });
   }
 
