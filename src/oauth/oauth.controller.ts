@@ -14,7 +14,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 
 import { Public } from '../auth/decorators/public.decorator';
-import { OAuthError, OAuthService } from './oauth.service';
+import { OAuthError, OAuthService, OneTimePasswordFirstError } from './oauth.service';
 import { errorPage, loginPage, workspacePage } from './views';
 
 /**
@@ -141,14 +141,19 @@ export class OAuthController {
     let user;
     try {
       user = await this.oauth.authenticate(String(body?.email ?? ''), String(body?.password ?? ''));
-    } catch {
+    } catch (error) {
+      // The password was right but is a one-time one: say so — the person
+      // has proven it — and send them to set their own first.
+      const otpFirst = error instanceof OneTimePasswordFirstError;
       return this.html(
         res,
         loginPage({
           sealed: String(body.request),
           clientName,
           scope: request.scope,
-          error: 'Սխալ էլ. փոստ կամ գաղտնաբառ',
+          error: otpFirst
+            ? 'Նախ մուտք գործեք Nairon և սահմանեք նոր գաղտնաբառ, ապա միացեք կրկին։'
+            : 'Սխալ էլ. փոստ կամ գաղտնաբառ',
           email: String(body?.email ?? ''),
         }),
         HttpStatus.UNAUTHORIZED,

@@ -4,6 +4,11 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthPrismaService } from '../prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { AI_DOCK_PERMISSIONS } from '../permissions/permissions.service';
+import {
+  ONE_TIME_PASSWORD_SESSION_TTL_SEC,
+  isOneTimePasswordToken,
+  oneTimePasswordSessionsEnabled,
+} from './one-time-password';
 
 /**
  * The session's capability marker for the AI dock (2026-10-06): `user.aiDockPermissions: true` while the catalogue
@@ -60,6 +65,21 @@ export class AuthService {
     return { access_token, [AI_DOCK_MARKER]: true as const, user: { ...payload, [AI_DOCK_MARKER]: true as const } };
   }
 
+  /**
+   * The session token for this account. With ONE_TIME_PASSWORD_SESSIONS on, an
+   * account in one-time-password state gets `otp: true` and one hour
+   * (one-time-password.ts); every other session is exactly as before.
+   */
+  private async sessionToken(user: { id: number; email: string; isOneTimePassword?: boolean | null }) {
+    if (oneTimePasswordSessionsEnabled() && user.isOneTimePassword === true) {
+      return this.jwtService.signAsync(
+        { id: user.id, email: user.email, otp: true },
+        { expiresIn: ONE_TIME_PASSWORD_SESSION_TTL_SEC },
+      );
+    }
+    return this.jwtService.signAsync({ id: user.id, email: user.email });
+  }
+
   async signIn(email: string, pass: string) {
     const user = await this.prisma.user.findFirst({
       where: { email: email.toLowerCase().trim() },
@@ -77,7 +97,7 @@ export class AuthService {
     const { password, ...payload } = user;
     // No admin claim in the token: super-admin (level-0 role) is entity-scoped,
     // so every service resolves it per request against the selected entity.
-    return this.session(await this.jwtService.signAsync({ id: payload.id, email: payload.email }), payload);
+    return this.session(await this.sessionToken(user), payload);
   }
 
   async getMe(token: string) {
@@ -90,6 +110,17 @@ export class AuthService {
       // A token issued before deactivation stays cryptographically valid for
       // its full 30 days, so the check has to happen here on every restore.
       if (!user || user.deactivatedAt) throw new UnauthorizedException();
+      // A one-time-password session ends when the account leaves that state:
+      // it is never upgraded, so the person signs in again with the password
+      // they have just set. Judged whatever the flag says — a marked token
+      // exists only if the flag was on when it was minted.
+      if (isOneTimePasswordToken(decoded) && user.isOneTimePassword !== true) throw new UnauthorizedException();
+      // And an unmarked session of an account that is in that state — one
+      // from before the flag, or from before an admin set a one-time password
+      // — ends too: signing in again gives the restricted session.
+      if (oneTimePasswordSessionsEnabled() && !isOneTimePasswordToken(decoded) && user.isOneTimePassword === true) {
+        throw new UnauthorizedException();
+      }
       const { password, ...payload } = user;
       return await this.session(token, payload);
     } catch {
@@ -109,6 +140,8 @@ export class AuthService {
     });
     if (!user || user.deactivatedAt) return null;
     const { password, ...payload } = user;
-    return this.session(await this.jwtService.signAsync({ id: payload.id, email: payload.email }), payload);
+    // The same rule as signIn: a handoff never turns a one-time-password
+    // account into a full session in the next app.
+    return this.session(await this.sessionToken(user), payload);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { AuthPrismaService } from '../prisma.service';
 import { M } from '../constants/messages';
 import * as bcrypt from 'bcryptjs';
@@ -84,7 +84,17 @@ export class UsersService {
     return result;
   }
 
+  /**
+   * Internal only (InternalGuard and a Bearer token, and not routable through
+   * the gateway); no service calls it today — hr-api and crm-api reset through
+   * PATCH /users/:id. Held to the same rule as their routes of this name
+   * (2026-10-07): only while the account has a one-time password, so a token
+   * alone can never set its owner's password for good.
+   */
   async resetPassword(id: number, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id }, select: { isOneTimePassword: true } });
+    if (!user) throw new NotFoundException(M.user.notFound);
+    if (user.isOneTimePassword !== true) throw new ForbiddenException(M.user.oneTimePasswordOnly);
     const hashed = await bcrypt.hash(newPassword, 10);
     await this.prisma.user.update({
       where: { id },

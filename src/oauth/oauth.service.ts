@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthPrismaService } from '../prisma.service';
 import { AuthService } from '../auth/auth.service';
 import { jwtConstants } from '../auth/constants';
+import { oneTimePasswordSessionsEnabled } from '../auth/one-time-password';
 import { OAuthConfig, SUPPORTED_SCOPES, OAUTH_SCOPES, oauthConfig } from './oauth.config';
 import { randomToken, sha256, verifyPkceS256 } from './oauth.crypto';
 import { checkRedirectUri, matchesRegistered } from './redirect-policy';
@@ -24,6 +25,18 @@ const yerevanTime = (d: Date) =>
   d.toLocaleString('hy-AM', { timeZone: 'Asia/Yerevan', dateStyle: 'short', timeStyle: 'short' });
 
 /** An OAuth error that must reach the client as a spec-shaped body. */
+/**
+ * The password was right, but it is a one-time password (one-time-password.ts):
+ * the person sets their own in Nairon first. An MCP client must never be the
+ * way round that — its session is a full one.
+ */
+export class OneTimePasswordFirstError extends Error {
+  constructor() {
+    super('one-time password must be replaced first');
+    this.name = 'OneTimePasswordFirstError';
+  }
+}
+
 export class OAuthError extends Error {
   constructor(
     readonly code: string,
@@ -288,6 +301,9 @@ export class OAuthService {
     // the deliberately vague failure message. Re-implementing any of that here
     // would create a second front door with its own bugs.
     const { user } = await this.auth.signIn(email, password);
+    if (oneTimePasswordSessionsEnabled() && (user as { isOneTimePassword?: boolean }).isOneTimePassword === true) {
+      throw new OneTimePasswordFirstError();
+    }
     return user as { id: number; email: string; firstName: string; lastName: string };
   }
 
@@ -683,7 +699,9 @@ export class OAuthService {
     const grant = await this.prisma.oAuthGrant.findUnique({
       where: { id: String(payload.gid ?? '') },
       include: {
-        user: { select: { id: true, email: true, firstName: true, lastName: true, deactivatedAt: true } },
+        user: {
+          select: { id: true, email: true, firstName: true, lastName: true, deactivatedAt: true, isOneTimePassword: true },
+        },
       },
     });
     if (!grant || grant.revokedAt) {
@@ -694,6 +712,11 @@ export class OAuthService {
     }
     if (grant.user.deactivatedAt) {
       throw new OAuthError('invalid_token', 'this account is inactive', 401);
+    }
+    // An admin set a one-time password after this grant was made: until the
+    // person has replaced it, nothing — the MCP session would be a full one.
+    if (oneTimePasswordSessionsEnabled() && grant.user.isOneTimePassword === true) {
+      throw new OAuthError('invalid_token', 'the account has a one-time password; set a new one in Nairon first', 401);
     }
 
     // Signed with the Nairon secret, in the shape login produces, so the
