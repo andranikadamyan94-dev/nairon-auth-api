@@ -133,6 +133,11 @@ function prismaStub(seed: any = {}) {
     oAuthClient: table(db.clients, 'id'),
     oAuthGrant: {
       ...table(db.grants, 'id'),
+      // issueCode asks whether this person already let the client in (phase 3 notices).
+      findFirst: async ({ where }: any) =>
+        [...db.grants.values()].find(
+          (g) => g.userId === where.userId && g.clientId === where.clientId && g.revokedAt == null,
+        ) ?? null,
       findUnique: async ({ where, include }: any) => {
         const row = db.grants.get(where.id);
         if (!row) return null;
