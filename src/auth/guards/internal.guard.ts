@@ -1,4 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { createHash, timingSafeEqual } from 'crypto';
 import { M } from '../../constants/messages';
 
 /**
@@ -50,9 +51,22 @@ export function assertInternalSecret(incoming: unknown): void {
   if (typeof expected !== 'string' || expected.trim() === '') {
     throw new UnauthorizedException(M.internal.notConfigured);
   }
-  if (typeof incoming !== 'string' || incoming === '' || incoming !== expected) {
+  if (typeof incoming !== 'string' || incoming === '' || !sameSecret(incoming, expected)) {
     throw new UnauthorizedException();
   }
+}
+
+/**
+ * Constant-time equality (2026-10-09, with POST /api/internal/permissions/ensure).
+ *
+ * `!==` stops at the first differing character, so its timing tells a caller
+ * how much of a guess was right. Both sides are hashed first, so the compare
+ * always runs over 32 bytes and leaks neither the position of a mismatch nor
+ * the length of the secret. Same truth table as before.
+ */
+function sameSecret(incoming: string, expected: string): boolean {
+  const digest = (value: string) => createHash('sha256').update(value, 'utf8').digest();
+  return timingSafeEqual(digest(incoming), digest(expected));
 }
 
 /**
