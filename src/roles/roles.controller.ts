@@ -29,10 +29,13 @@ export class RolesController {
   findAll(
     @Query('departmentId') departmentId?: string,
     @Query('includeSuperAdmin') includeSuperAdmin?: string,
+    // Opt-in slim shape (no grant rows); anything but 'false' keeps the default.
+    @Query('withPermissions') withPermissions?: string,
   ) {
     return this.rolesService.getAllRoles(
       departmentId ? Number(departmentId) : undefined,
       includeSuperAdmin === 'true',
+      withPermissions !== 'false',
     );
   }
 

@@ -22,14 +22,16 @@ export class RolesService {
     return this.prisma.role.create({ data: { name, level: level ?? null } });
   }
 
-  async getAllRoles(_departmentId?: number, includeSuperAdmin = false) {
+  /** `withPermissions` false: the roles alone, without each one's grant rows
+   *  (opt-in `?withPermissions=false`; the default keeps the full shape). */
+  async getAllRoles(_departmentId?: number, includeSuperAdmin = false, withPermissions = true) {
     // Super-admin roles stay out of role lists — they are not part of the
     // grantable catalog — unless HR asks for them on behalf of a super-admin
     // filling the member form (2026-09-16: super-admins assign the role to
     // each other from there).
     return this.prisma.role.findMany({
       where: includeSuperAdmin ? {} : ({ isSuperAdmin: false } as any),
-      include: { permissions: { include: { permission: true } } },
+      ...(withPermissions ? { include: { permissions: { include: { permission: true } } } } : {}),
       orderBy: { level: 'asc' },
     });
   }

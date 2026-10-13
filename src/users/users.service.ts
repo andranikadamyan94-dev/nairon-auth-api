@@ -4,6 +4,19 @@ import { M } from '../constants/messages';
 import * as bcrypt from 'bcryptjs';
 import { CreateUserDto, UpdateUserDto } from './dtos/user.dto';
 
+/**
+ * The user's roles, each with its permission catalogue — or, with
+ * `withPermissions` false, the roles alone. The nested catalogue is ~10–15 KB
+ * per user; callers that only need names and role names opt out with
+ * `?withPermissions=false` (perf audit 2026-10-13, 1.8). The default stays the
+ * full shape: AI tools and the HR client's session refresh read it.
+ */
+const rolesInclude = (withPermissions: boolean) => ({
+  roles: {
+    include: { role: withPermissions ? { include: { permissions: { include: { permission: true } } } } : true },
+  },
+});
+
 @Injectable()
 export class UsersService {
   constructor(private prisma: AuthPrismaService) {}
@@ -28,14 +41,10 @@ export class UsersService {
     return result;
   }
 
-  async getUserById(id: number) {
+  async getUserById(id: number, withPermissions = true) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      include: {
-        roles: {
-          include: { role: { include: { permissions: { include: { permission: true } } } } },
-        },
-      },
+      include: rolesInclude(withPermissions),
     });
     if (!user) throw new NotFoundException(M.user.notFound);
     const { password, ...result } = user;
@@ -51,7 +60,7 @@ export class UsersService {
    * userId back into a name on a historical record. A past task assignee or
    * payroll row must still name the person, not render a blank.
    */
-  async getAllUsers(page = 1, limit = 100, includeInactive = false, includeSuperAdmins = false) {
+  async getAllUsers(page = 1, limit = 100, includeInactive = false, includeSuperAdmins = false, withPermissions = true) {
     const users = await this.prisma.user.findMany({
       // Superusers stay out of every people list — they exist only via
       // direct-by-id lookups. This feeds every downstream directory. The one
@@ -65,11 +74,7 @@ export class UsersService {
       // may be arranged differently per query, which makes paged results skip
       // and repeat users.
       orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }, { id: 'asc' }],
-      include: {
-        roles: {
-          include: { role: { include: { permissions: { include: { permission: true } } } } },
-        },
-      },
+      include: rolesInclude(withPermissions),
       skip: (page - 1) * limit,
       take: limit,
     });

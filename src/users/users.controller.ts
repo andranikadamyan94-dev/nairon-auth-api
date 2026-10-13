@@ -37,20 +37,24 @@ export class UsersController {
     @Query('limit') limit?: string,
     @Query('includeInactive') includeInactive?: string,
     @Query('includeSuperAdmins') includeSuperAdmins?: string,
+    // Opt-in slim shape: roles without their permission catalogue. Anything
+    // but the literal 'false' keeps the full default.
+    @Query('withPermissions') withPermissions?: string,
   ) {
     return this.usersService.getAllUsers(
       page ? +page : 1,
       limit ? +limit : 100,
       includeInactive === 'true',
       includeSuperAdmins === 'true',
+      withPermissions !== 'false',
     );
   }
 
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get user by id' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.usersService.getUserById(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @Query('withPermissions') withPermissions?: string) {
+    return this.usersService.getUserById(id, withPermissions !== 'false');
   }
 
   @Public()
