@@ -210,6 +210,14 @@ export const ALL_PERMISSIONS = [
   // is granted anything here; the owner grants per organization as usual.
   'marketing_view', 'marketing_manage_campaigns', 'marketing_edit_content',
   'marketing_approve_content', 'marketing_manage_channels', 'marketing_manage_budget',
+  // Nairon Studio (2026-10-13). Catalogue only: adding a name grants it to
+  // nobody; the owner grants per organization as usual. Studio reads each one
+  // literally: super admin does not stand in for any of them. studio_view is
+  // the entry switch, none of the others does anything without it.
+  // studio_use_photocraft opens Studio's PhotoCraft editor.
+  'studio_view', 'studio_generate_image', 'studio_generate_video',
+  'studio_view_team_library', 'studio_manage_library', 'studio_manage_models',
+  'studio_use_photocraft',
 ];
 
 @Injectable()

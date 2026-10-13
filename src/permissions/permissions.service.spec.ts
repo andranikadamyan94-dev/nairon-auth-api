@@ -255,3 +255,51 @@ describe('AI dock marker — ai_dock_marker', () => {
     expect(grant).not.toMatch(/use_ai_screen|ai_mode_screen/);
   });
 });
+
+/*
+ * Nairon Studio. Seven literal grants, catalogue only: Studio reads each one
+ * literally, super admin does not stand in, and being in the catalogue hands it
+ * to nobody. A seeded row is never removed by the seed, so a name that is not
+ * meant to exist must never be added here.
+ */
+const STUDIO = [
+  'studio_view', 'studio_generate_image', 'studio_generate_video', 'studio_view_team_library',
+  'studio_manage_library', 'studio_manage_models', 'studio_use_photocraft',
+];
+
+describe('Nairon Studio-ի իրավունքները կատալոգում', () => {
+  it.each(STUDIO)('%s կատալոգում է՝ ճիշտ մեկ անգամ', (name) => {
+    expect(ALL_PERMISSIONS.filter((p) => p === name)).toEqual([name]);
+  });
+
+  it('կատալոգում studio_* անուններն ուղիղ այս յոթն են', () => {
+    expect(ALL_PERMISSIONS.filter((p) => p.startsWith('studio')).sort()).toEqual([...STUDIO].sort());
+  });
+
+  it('թաքցված (retired) չեն', () => {
+    for (const name of STUDIO) expect(RETIRED_PERMISSIONS).not.toContain(name);
+  });
+
+  it('seed-ը գրում է միայն Permission տողեր՝ ոչ մի դերի կամ աշխատակցի չի նշանակում', async () => {
+    const { prisma, calls } = recordingPrisma();
+    await new PermissionsService(prisma).seedPermissions();
+
+    expect(calls.every((c) => c.model === 'permission' && c.method === 'upsert')).toBe(true);
+    expect(calls).toHaveLength(ALL_PERMISSIONS.length);
+
+    for (const name of STUDIO) {
+      const matching = calls.filter((c) => c.args.where.name === name);
+      expect(matching).toHaveLength(1);
+      expect(matching[0].args).toEqual({ where: { name }, create: { name }, update: {} });
+    }
+  });
+
+  it('ոչ մի միգրացիա չի ավելացնում կամ նշանակում այս իրավունքները', () => {
+    const dir = join(__dirname, '..', '..', 'prisma', 'migrations');
+    const sql = readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => readFileSync(join(dir, d.name, 'migration.sql'), 'utf8'))
+      .join('\n');
+    for (const name of STUDIO) expect(sql).not.toContain(name);
+  });
+});
