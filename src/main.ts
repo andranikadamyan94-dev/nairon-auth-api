@@ -40,6 +40,9 @@ async function bootstrap() {
     // any authenticated call here (logout, etc.) with an entity selected
     // failed the CORS preflight before it ever reached a route.
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Entity-ID'],
+    // Let a browser that calls this API directly cache the preflight (Chrome
+    // caps it at 2 h); the gateway, which answers the proxied ones, does the same.
+    maxAge: 7200,
   });
 
   // The OAuth surface sits at the root, not under /api.
